@@ -21,6 +21,19 @@ public class FilteredViewerModel extends AbstractTableModel implements TextViewe
         this.parentModel = parentModel;
     }
 
+    public void deleteAllRows() {
+
+        rowIndex.clear();
+
+        int maxRow = rowCount - 1;
+
+        rowCount = 0;
+
+        if (maxRow >= 0) {
+            fireTableRowsDeleted(0, maxRow);
+        }
+    }
+
     public void addRows(List<Integer> rows) {
         rowIndex.addAll(rows);
         rowCount = rowIndex.size();

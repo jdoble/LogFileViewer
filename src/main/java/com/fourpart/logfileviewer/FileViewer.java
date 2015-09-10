@@ -23,6 +23,7 @@ import javax.swing.WindowConstants;
 
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.Insets;
 import java.awt.Rectangle;
@@ -54,8 +55,8 @@ public class FileViewer extends JFrame {
     private	TextViewer fileViewer;
     private FileViewerModel fileViewerModel;
 
-    private TextViewer filteredViewer;
-    private FilteredViewerModel filteredViewerModel;
+    private TextViewer searchResultViewer;
+    private FilteredViewerModel searchResultViewerModel;
 
     private JTextField filterBox1;
 
@@ -100,6 +101,8 @@ public class FileViewer extends JFrame {
         fileStatusPanel.addComponent(fileStatusFillerPanel, 0, 2, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0));
 
         fileViewer = new TextViewer(fileViewerModel);
+        fileViewer.setShowGrid(false);
+        fileViewer.setIntercellSpacing(new Dimension(0, 0));
 
         fileScrollPane = new JScrollPane(fileViewer, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
@@ -115,29 +118,32 @@ public class FileViewer extends JFrame {
         searchButton = new JButton("Search");
         searchButton.setEnabled(false);
         searchButton.addActionListener(new SearchButtonActionListener());
+        getRootPane().setDefaultButton(searchButton);
 
         GridBagPanel filterControlPanel = new GridBagPanel();
         filterControlPanel.addComponent(filterBox1, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.NONE, new Insets(0, 0, 0, 0));
         filterControlPanel.addComponent(new JPanel(), 0, 1, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0));
         filterControlPanel.addComponent(searchButton, 0, 2, 1, 1, 0.0, 0.0, GridBagConstraints.NORTHEAST, GridBagConstraints.NONE, new Insets(0, 0, 0, 0));
 
-        filteredViewerModel = new FilteredViewerModel();
-        filteredViewer = new TextViewer(filteredViewerModel);
+        searchResultViewerModel = new FilteredViewerModel();
+        searchResultViewer = new TextViewer(searchResultViewerModel);
+        searchResultViewer.setShowGrid(false);
+        searchResultViewer.setIntercellSpacing(new Dimension(0, 0));
 
-        ListSelectionModel filteredViewerSelectionModel = filteredViewer.getSelectionModel();
-        filteredViewerSelectionModel.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        ListSelectionModel searchResultViewerSelectionModel = searchResultViewer.getSelectionModel();
+        searchResultViewerSelectionModel.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
-        filteredViewerSelectionModel.addListSelectionListener(new ListSelectionListener() {
+        searchResultViewerSelectionModel.addListSelectionListener(new ListSelectionListener() {
             @Override
             public void valueChanged(ListSelectionEvent e) {
 
-                int selectedRow = filteredViewer.getSelectedRow();
+                int selectedRow = searchResultViewer.getSelectedRow();
 
                 if (selectedRow < 0) {
                     return;
                 }
 
-                int fileRow = filteredViewerModel.getFileRow(selectedRow);
+                int fileRow = searchResultViewerModel.getFileRow(selectedRow);
 
                 fileViewer.getSelectionModel().setSelectionInterval(fileRow, fileRow);
                 fileViewer.getSelectionModel().setSelectionInterval(fileRow, fileRow);
@@ -145,7 +151,7 @@ public class FileViewer extends JFrame {
             }
         });
 
-        JScrollPane searchScrollPane = new JScrollPane(filteredViewer, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        JScrollPane searchScrollPane = new JScrollPane(searchResultViewer, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
         GridBagPanel searchPanel = new GridBagPanel();
 
@@ -235,6 +241,9 @@ public class FileViewer extends JFrame {
 
         fileLoadProgressBar.setVisible(true);
         fileStatusFillerPanel.setVisible(false);
+
+        searchResultViewerModel.deleteAllRows();
+        searchButton.setEnabled(false);
 
         new LoadFileSwingWorker(file).execute();
     }
@@ -347,7 +356,7 @@ public class FileViewer extends JFrame {
 
             final long elapsedTime = System.currentTimeMillis() - startTime;
 
-            new Timer(1000, new ActionListener() {
+            Timer delayTimer = new Timer(1000, new ActionListener() {
 
                 @Override
                 public void actionPerformed(ActionEvent e) {
@@ -355,7 +364,11 @@ public class FileViewer extends JFrame {
                     fileStatusFillerPanel.setVisible(true);
                     fileStatusLabel.setText(file.getAbsolutePath() + " (" + elapsedTime + " ms)");
                 }
-            }).start();
+            });
+
+            delayTimer.setRepeats(false);
+
+            delayTimer.start();
         }
     }
 
@@ -370,9 +383,11 @@ public class FileViewer extends JFrame {
             searchStatusFillerPanel.setVisible(false);
             searchProgressBar.setVisible(true);
 
-            filteredViewerModel.setParentModel(fileViewerModel);
+            searchResultViewerModel.deleteAllRows();
 
-            filteredViewer.setColumnWidths(fileViewer.getColumnWidths());
+            searchResultViewerModel.setParentModel(fileViewerModel);
+
+            searchResultViewer.setColumnWidths(fileViewer.getColumnWidths());
 
             new SearchButtonSwingWorker().execute();
         }
@@ -449,34 +464,38 @@ public class FileViewer extends JFrame {
 
         @Override
         public void process(List<Integer> rows) {
-            filteredViewerModel.addRows(rows);
+            searchResultViewerModel.addRows(rows);
         }
 
         @Override
-        public void done () {
+        public void done() {
 
             searchProgressBar.setValue(100);
 
-            int lineCount = filteredViewerModel.getRowCount();
+            int lineCount = searchResultViewerModel.getRowCount();
 
             long elapsedTime = System.currentTimeMillis() - startTime;
 
             if (lineCount == 1) {
-                searchLabel.setText("Found 1 line in " + elapsedTime + " ms.");
+                searchLabel.setText("Found 1 line (" + elapsedTime + " ms)");
             } else {
-                searchLabel.setText("Found " + lineCount + " lines in " + elapsedTime + " ms.");
+                searchLabel.setText("Found " + lineCount + " lines (" + elapsedTime + " ms)");
             }
 
             searchButton.setEnabled(true);
 
-            new Timer(1000, new ActionListener() {
+            Timer delayTimer = new Timer(1000, new ActionListener() {
 
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     searchProgressBar.setVisible(false);
                     searchStatusFillerPanel.setVisible(true);
                 }
-            }).start();
+            });
+
+            delayTimer.setRepeats(false);
+
+            delayTimer.start();
         }
     }
 
@@ -507,7 +526,7 @@ public class FileViewer extends JFrame {
 
     public static void main(final String args[]) {
 
-        createFile(new File("sample.txt"));
+        // createFile(new File("sample.txt"));
 
         SwingUtilities.invokeLater(new Runnable() {
 

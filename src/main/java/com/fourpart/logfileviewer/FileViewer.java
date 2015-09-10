@@ -448,9 +448,9 @@ public class FileViewer extends JFrame {
                 else {
                     switch((FilterOperation)operationBox.getSelectedItem()) {
                         case AND:
-                            return new AndFilter(new SimpleFilter(searchText1), new SimpleFilter(searchText2));
+                            return new AndFilter(buildFilter(searchText1), buildFilter(searchText2));
                         case OR:
-                            return new OrFilter(new SimpleFilter(searchText1), new SimpleFilter(searchText2));
+                            return new OrFilter(buildFilter(searchText1), buildFilter(searchText2));
                         default:
                             return new AcceptAllFilter();
                     }

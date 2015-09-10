@@ -1,15 +1,21 @@
 package com.fourpart.logfileviewer;
 
+import com.fourpart.logfileviewer.filter.AcceptAllFilter;
+import com.fourpart.logfileviewer.filter.AndFilter;
 import com.fourpart.logfileviewer.filter.Filter;
+import com.fourpart.logfileviewer.filter.OrFilter;
+import com.fourpart.logfileviewer.filter.RegExFilter;
 import com.fourpart.logfileviewer.filter.SimpleFilter;
 
+import javax.swing.DefaultComboBoxModel;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
-import javax.swing.JTextField;
 import javax.swing.JButton;
 import javax.swing.ListSelectionModel;
 import javax.swing.JSplitPane;
@@ -44,21 +50,32 @@ import java.io.FileWriter;
 
 public class FileViewer extends JFrame {
 
-    private JFileChooser fileChooser;
+    private static final String FILTER_BOX_PROTOTYPE_TEXT = "wwwwwwwwwwwwwwww";
 
-    private	GridBagPanel mainPanel;
+    private JFileChooser fileChooser;
 
     private JLabel fileStatusLabel;
     private JProgressBar fileLoadProgressBar;
     private JPanel fileStatusFillerPanel;
-    private	JScrollPane fileScrollPane;
     private	TextViewer fileViewer;
     private FileViewerModel fileViewerModel;
 
     private TextViewer searchResultViewer;
     private FilteredViewerModel searchResultViewerModel;
 
-    private JTextField filterBox1;
+    private JComboBox<String> filterBox1;
+    private DefaultComboBoxModel<String> filterBoxModel1;
+
+    private JComboBox<String> filterBox2;
+    private DefaultComboBoxModel<String> filterBoxModel2;
+
+    private enum FilterOperation {
+        AND, OR
+    }
+
+    private JComboBox<FilterOperation> operationBox;
+
+    private JCheckBox regexBox;
 
     private JButton searchButton;
 
@@ -96,7 +113,7 @@ public class FileViewer extends JFrame {
         fileStatusFillerPanel.setVisible(false);
 
         GridBagPanel fileStatusPanel = new GridBagPanel();
-        fileStatusPanel.addComponent(fileStatusLabel, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(2,2,2,2));
+        fileStatusPanel.addComponent(fileStatusLabel, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2));
         fileStatusPanel.addComponent(fileLoadProgressBar, 0, 1, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL, new Insets(2, 6, 2, 2));
         fileStatusPanel.addComponent(fileStatusFillerPanel, 0, 2, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0));
 
@@ -104,16 +121,28 @@ public class FileViewer extends JFrame {
         fileViewer.setShowGrid(false);
         fileViewer.setIntercellSpacing(new Dimension(0, 0));
 
-        fileScrollPane = new JScrollPane(fileViewer, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        JScrollPane fileScrollPane = new JScrollPane(fileViewer, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
         GridBagPanel filePanel = new GridBagPanel();
 
-        filePanel.addComponent(fileStatusPanel, 0, 0, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.BOTH, new Insets(0,0,0,0));
-        filePanel.addComponent(fileScrollPane, 1, 0, 1, 1, 1.0, 1.0, GridBagConstraints.NORTHWEST, GridBagConstraints.BOTH, new Insets(0,0,0,0));
+        filePanel.addComponent(fileStatusPanel, 0, 0, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.BOTH, new Insets(0, 0, 0, 0));
+        filePanel.addComponent(fileScrollPane, 1, 0, 1, 1, 1.0, 1.0, GridBagConstraints.NORTHWEST, GridBagConstraints.BOTH, new Insets(0, 0, 0, 0));
 
         // Bottom Panel
 
-        filterBox1 = new JTextField(20);
+        filterBoxModel1 = new DefaultComboBoxModel<>();
+        filterBox1 = new JComboBox<>(filterBoxModel1);
+        filterBox1.setEditable(true);
+        filterBox1.setPrototypeDisplayValue(FILTER_BOX_PROTOTYPE_TEXT);
+
+        operationBox = new JComboBox<>(FilterOperation.values());
+
+        filterBoxModel2 = new DefaultComboBoxModel<>();
+        filterBox2 = new JComboBox<>(filterBoxModel2);
+        filterBox2.setEditable(true);
+        filterBox2.setPrototypeDisplayValue(FILTER_BOX_PROTOTYPE_TEXT);
+
+        regexBox = new JCheckBox("RegEx");
 
         searchButton = new JButton("Search");
         searchButton.setEnabled(false);
@@ -121,9 +150,12 @@ public class FileViewer extends JFrame {
         getRootPane().setDefaultButton(searchButton);
 
         GridBagPanel filterControlPanel = new GridBagPanel();
-        filterControlPanel.addComponent(filterBox1, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.NONE, new Insets(0, 0, 0, 0));
-        filterControlPanel.addComponent(new JPanel(), 0, 1, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0));
-        filterControlPanel.addComponent(searchButton, 0, 2, 1, 1, 0.0, 0.0, GridBagConstraints.NORTHEAST, GridBagConstraints.NONE, new Insets(0, 0, 0, 0));
+        filterControlPanel.addComponent(filterBox1, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(0, 2, 2, 0));
+        filterControlPanel.addComponent(operationBox, 0, 1, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(0, 2, 2, 0));
+        filterControlPanel.addComponent(filterBox2, 0, 2, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(0, 2, 2, 0));
+        filterControlPanel.addComponent(new JPanel(), 0, 3, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0));
+        filterControlPanel.addComponent(regexBox, 0, 4, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(0, 2, 2, 0));
+        filterControlPanel.addComponent(searchButton, 0, 5, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(0, 2, 2, 0));
 
         searchResultViewerModel = new FilteredViewerModel();
         searchResultViewer = new TextViewer(searchResultViewerModel);
@@ -181,7 +213,7 @@ public class FileViewer extends JFrame {
         splitPane.setResizeWeight(0.5);
         splitPane.setDividerSize(2);
 
-        mainPanel = new GridBagPanel();
+        GridBagPanel mainPanel = new GridBagPanel();
 
         mainPanel.addComponent(splitPane, 0, 0, 1, 1, 1.0, 1.0, GridBagConstraints.NORTHWEST, GridBagConstraints.BOTH, new Insets(0, 0, 0, 0));
 
@@ -389,7 +421,66 @@ public class FileViewer extends JFrame {
 
             searchResultViewer.setColumnWidths(fileViewer.getColumnWidths());
 
-            new SearchButtonSwingWorker().execute();
+            Filter filter = buildFilter();
+
+            new SearchButtonSwingWorker(filter).execute();
+        }
+
+        private Filter buildFilter() {
+
+            String searchText1 = getComboBoxValue(filterBox1, filterBoxModel1);
+            String searchText2 = getComboBoxValue(filterBox2, filterBoxModel2);
+
+            if (searchText1 == null) {
+
+                if (searchText2 == null) {
+                    return new AcceptAllFilter();
+                }
+                else {
+                    return buildFilter(searchText2);
+                }
+            }
+            else {
+
+                if (searchText2 == null) {
+                    return buildFilter(searchText1);
+                }
+                else {
+                    switch((FilterOperation)operationBox.getSelectedItem()) {
+                        case AND:
+                            return new AndFilter(new SimpleFilter(searchText1), new SimpleFilter(searchText2));
+                        case OR:
+                            return new OrFilter(new SimpleFilter(searchText1), new SimpleFilter(searchText2));
+                        default:
+                            return new AcceptAllFilter();
+                    }
+                }
+            }
+        }
+
+        private Filter buildFilter(String matchText) {
+
+            if (regexBox.isSelected()) {
+                return new RegExFilter(matchText);
+            }
+            else {
+                return new SimpleFilter(matchText);
+            }
+        }
+
+        private String getComboBoxValue(JComboBox<String> comboBox, DefaultComboBoxModel<String> comboBoxModel) {
+
+            String value = (String)comboBox.getSelectedItem();
+
+            if (value == null || value.length() == 0) {
+                return null;
+            }
+
+            comboBoxModel.removeElement(value);
+            comboBoxModel.insertElementAt(value, 0);
+            comboBoxModel.setSelectedItem(value);
+
+            return value;
         }
     }
 
@@ -397,7 +488,11 @@ public class FileViewer extends JFrame {
 
         private long startTime = System.currentTimeMillis();
 
-        private SearchButtonSwingWorker() {
+        private Filter filter;
+
+        private SearchButtonSwingWorker(Filter filter) {
+
+            this.filter = filter;
 
             addPropertyChangeListener(new PropertyChangeListener() {
 
@@ -416,7 +511,6 @@ public class FileViewer extends JFrame {
 
             FileInputStream in = new FileInputStream(fileViewerModel.getFile());
             FileChannel fileChannel = in.getChannel();
-            Filter filter = new SimpleFilter(filterBox1.getText());
 
             ByteBuffer buf = ByteBuffer.allocate(16 * 1024);
 

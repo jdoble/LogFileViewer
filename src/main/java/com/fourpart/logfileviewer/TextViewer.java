@@ -29,6 +29,15 @@ public class TextViewer extends JTable {
         setDefaultRenderer(Object.class, new CustomRenderer());
     }
 
+    @Override
+    public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
+        Component component = super.prepareRenderer(renderer, row, column);
+        int rendererWidth = component.getPreferredSize().width;
+        TableColumn tableColumn = getColumnModel().getColumn(column);
+        tableColumn.setPreferredWidth(Math.max(rendererWidth + getIntercellSpacing().width, tableColumn.getPreferredWidth()));
+        return component;
+    }
+
     public void calculateColumnWidths() {
 
         TextViewerModel textViewerModel = getTextViewerModel();
@@ -49,11 +58,17 @@ public class TextViewer extends JTable {
                 columnWidths[column] = width;
             }
 
-            applyColumnWidths();
+            //applyColumnWidths();
         }
     }
 
     public int[] getColumnWidths() {
+
+        for (int column = 0; column < 2; column++) {
+            TableColumn tableColumn = getColumnModel().getColumn(column);
+            columnWidths[column] = tableColumn.getPreferredWidth();
+        }
+
         return columnWidths;
     }
 

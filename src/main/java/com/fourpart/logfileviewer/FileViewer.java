@@ -2,6 +2,7 @@ package com.fourpart.logfileviewer;
 
 import com.fourpart.logfileviewer.filter.AcceptAllFilter;
 import com.fourpart.logfileviewer.filter.AndFilter;
+import com.fourpart.logfileviewer.filter.AndNotFilter;
 import com.fourpart.logfileviewer.filter.Filter;
 import com.fourpart.logfileviewer.filter.OrFilter;
 import com.fourpart.logfileviewer.filter.RegExFilter;
@@ -67,7 +68,7 @@ public class FileViewer extends JFrame {
     private DefaultComboBoxModel<String> filterBoxModel2;
 
     private enum FilterOperation {
-        AND, OR
+        AND, OR, AND_NOT
     }
 
     private JComboBox<FilterOperation> operationBox;
@@ -451,6 +452,8 @@ public class FileViewer extends JFrame {
                             return new AndFilter(buildFilter(searchText1), buildFilter(searchText2));
                         case OR:
                             return new OrFilter(buildFilter(searchText1), buildFilter(searchText2));
+                        case AND_NOT:
+                            return new AndNotFilter(buildFilter(searchText1), buildFilter(searchText2));
                         default:
                             return new AcceptAllFilter();
                     }

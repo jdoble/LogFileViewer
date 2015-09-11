@@ -274,6 +274,7 @@ public class FileViewer extends JFrame {
         fileLoadProgressBar.setVisible(true);
         fileStatusFillerPanel.setVisible(false);
 
+        fileViewerModel.deleteAllRows();
         searchResultViewerModel.deleteAllRows();
         searchButton.setEnabled(false);
 
@@ -604,6 +605,8 @@ public class FileViewer extends JFrame {
             for (int i = 0; i < 10000000; i++) {
                 out.println("There are " + i + " bottles of root beer in the wall.");
             }
+
+            out.println("A short line.");
         } catch (Exception e) {
             e.printStackTrace();
         } finally {

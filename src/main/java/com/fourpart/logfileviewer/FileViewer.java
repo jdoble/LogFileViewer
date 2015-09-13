@@ -87,7 +87,8 @@ public class FileViewer extends JFrame {
 
         setTitle("File Viewer");
 
-        setSize(1000, 600);
+        setSize(1100, 700);
+        setLocationRelativeTo(null);
 
         fileChooser = new JFileChooser(new File("").getAbsoluteFile());
 
@@ -277,6 +278,7 @@ public class FileViewer extends JFrame {
         fileViewerModel.deleteAllRows();
         searchResultViewerModel.deleteAllRows();
         searchButton.setEnabled(false);
+        searchLabel.setVisible(false);
 
         new LoadFileSwingWorker(file).execute();
     }
@@ -389,13 +391,21 @@ public class FileViewer extends JFrame {
 
             final long elapsedTime = System.currentTimeMillis() - startTime;
 
+            final int lineCount = fileViewerModel.getRowCount();
+
             Timer delayTimer = new Timer(1000, new ActionListener() {
 
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     fileLoadProgressBar.setVisible(false);
                     fileStatusFillerPanel.setVisible(true);
-                    fileStatusLabel.setText(file.getAbsolutePath() + " (" + elapsedTime + " ms)");
+
+                    if (lineCount == 1) {
+                        fileStatusLabel.setText(file.getAbsolutePath() + " (1 line, " + elapsedTime + " ms)");
+                    }
+                    else {
+                        fileStatusLabel.setText(file.getAbsolutePath() + " (" + lineCount + " lines, " + elapsedTime + " ms)");
+                    }
                 }
             });
 
@@ -596,7 +606,7 @@ public class FileViewer extends JFrame {
         }
     }
 
-    private static void createFile(File file) {
+    private static void createFile(File file, int lineCount) {
 
         PrintWriter out = null;
 
@@ -604,7 +614,7 @@ public class FileViewer extends JFrame {
 
             out = new PrintWriter(new BufferedWriter(new FileWriter(file)));
 
-            for (int i = 0; i < 10000000; i++) {
+            for (int i = 0; i < lineCount; i++) {
                 out.println("There are " + i + " bottles of root beer in the wall.");
             }
 
@@ -625,7 +635,7 @@ public class FileViewer extends JFrame {
 
     public static void main(final String args[]) {
 
-        // createFile(new File("sample.txt"));
+        //createFile(new File("sample.txt"), 10000000);
 
         SwingUtilities.invokeLater(new Runnable() {
 

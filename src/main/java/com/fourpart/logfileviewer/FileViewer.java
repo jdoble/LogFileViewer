@@ -55,7 +55,8 @@ public class FileViewer extends JFrame {
     private JLabel fileStatusLabel;
     private JProgressBar fileLoadProgressBar;
     private JPanel fileStatusFillerPanel;
-    private	TextViewer fileViewer;
+    private JButton fileReloadButton;
+    private TextViewer fileViewer;
     private FileViewerModel fileViewerModel;
 
     private TextViewer searchResultViewer;
@@ -91,8 +92,8 @@ public class FileViewer extends JFrame {
         Rectangle screenBounds = graphicsConfiguration.getBounds();
         Insets screenInsets = Toolkit.getDefaultToolkit().getScreenInsets(graphicsConfiguration);
 
-        int screenWidth = (int)screenBounds.getWidth() - screenInsets.left - screenInsets.right;
-        int screenHeight = (int)screenBounds.getHeight() - screenInsets.top - screenInsets.bottom;
+        int screenWidth = (int) screenBounds.getWidth() - screenInsets.left - screenInsets.right;
+        int screenHeight = (int) screenBounds.getHeight() - screenInsets.top - screenInsets.bottom;
 
         setSize(screenWidth, screenHeight);
         setLocationRelativeTo(null);
@@ -103,8 +104,7 @@ public class FileViewer extends JFrame {
 
         try {
             fileViewerModel = new FileViewerModel();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
             return;
         }
@@ -116,12 +116,17 @@ public class FileViewer extends JFrame {
         fileLoadProgressBar.setVisible(false);
 
         fileStatusFillerPanel = new JPanel();
-        fileStatusFillerPanel.setVisible(false);
+        fileStatusFillerPanel.setVisible(true);
+
+        fileReloadButton = new JButton("Reload");
+        fileReloadButton.setEnabled(false);
+        fileReloadButton.addActionListener(new FileReloadActionListener());
 
         GridBagPanel fileStatusPanel = new GridBagPanel();
         fileStatusPanel.addComponent(fileStatusLabel, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2));
-        fileStatusPanel.addComponent(fileLoadProgressBar, 0, 1, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL, new Insets(2, 6, 2, 2));
-        fileStatusPanel.addComponent(fileStatusFillerPanel, 0, 2, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0));
+        fileStatusPanel.addComponent(fileLoadProgressBar, 0, 1, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(2, 6, 2, 2));
+        fileStatusPanel.addComponent(fileStatusFillerPanel, 0, 2, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0));
+        fileStatusPanel.addComponent(fileReloadButton, 0, 3, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2));
 
         fileViewer = new TextViewer(fileViewerModel);
         fileViewer.setShowGrid(false);
@@ -207,9 +212,9 @@ public class FileViewer extends JFrame {
         searchStatusFillerPanel.setVisible(true);
 
         GridBagPanel searchStatusPanel = new GridBagPanel();
-        searchStatusPanel.addComponent(searchLabel, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(0,2,0,0));
-        searchStatusPanel.addComponent(searchProgressBar, 0, 1, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL, new Insets(2,6,2,2));
-        searchStatusPanel.addComponent(searchStatusFillerPanel, 0, 2, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL, new Insets(0,0,0,0));
+        searchStatusPanel.addComponent(searchLabel, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(0, 2, 0, 0));
+        searchStatusPanel.addComponent(searchProgressBar, 0, 1, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL, new Insets(2, 6, 2, 2));
+        searchStatusPanel.addComponent(searchStatusFillerPanel, 0, 2, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0));
 
         searchPanel.addComponent(searchStatusPanel, 2, 0, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL, new Insets(0, 2, 0, 0));
 
@@ -274,18 +279,18 @@ public class FileViewer extends JFrame {
         }
     }
 
+    private class FileReloadActionListener implements ActionListener {
+
+        @Override
+        public void actionPerformed(ActionEvent actionEvent) {
+
+            loadFile(fileViewerModel.getFile());
+        }
+    }
+
     public void loadFile(final File file) {
 
-        fileStatusLabel.setText("Loading " + file.getAbsolutePath());
-        fileStatusLabel.setVisible(true);
-
-        fileLoadProgressBar.setVisible(true);
-        fileStatusFillerPanel.setVisible(false);
-
-        fileViewerModel.deleteAllRows();
-        searchResultViewerModel.deleteAllRows();
-        searchButton.setEnabled(false);
-        searchLabel.setVisible(false);
+        handleLoadFileStart(file);
 
         new LoadFileSwingWorker(file).execute();
     }
@@ -310,7 +315,7 @@ public class FileViewer extends JFrame {
                 public void propertyChange(final PropertyChangeEvent event) {
 
                     if ("progress".equals(event.getPropertyName())) {
-                        fileLoadProgressBar.setValue((Integer) event.getNewValue());
+                        handleLoadFileProgress((Integer) event.getNewValue());
                     }
                 }
             });
@@ -390,36 +395,110 @@ public class FileViewer extends JFrame {
         @Override
         public void done() {
 
-            fileLoadProgressBar.setValue(100);
-
             fileViewer.calculateColumnWidths();
 
-            searchButton.setEnabled(true);
-
-            final long elapsedTime = System.currentTimeMillis() - startTime;
-
-            final int lineCount = fileViewerModel.getRowCount();
-
-            Timer delayTimer = new Timer(1000, new ActionListener() {
-
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    fileLoadProgressBar.setVisible(false);
-                    fileStatusFillerPanel.setVisible(true);
-
-                    if (lineCount == 1) {
-                        fileStatusLabel.setText(file.getAbsolutePath() + " (1 line, " + elapsedTime + " ms)");
-                    }
-                    else {
-                        fileStatusLabel.setText(file.getAbsolutePath() + " (" + lineCount + " lines, " + elapsedTime + " ms)");
-                    }
-                }
-            });
-
-            delayTimer.setRepeats(false);
-
-            delayTimer.start();
+            handleLoadFileFinished(file, startTime);
         }
+    }
+
+    private void handleLoadFileStart(File file) {
+
+        fileStatusLabel.setText("Loading "+file.getAbsolutePath());
+        fileStatusLabel.setVisible(true);
+
+        fileLoadProgressBar.setVisible(true);
+        fileStatusFillerPanel.setVisible(false);
+        fileReloadButton.setEnabled(false);
+
+        fileViewerModel.deleteAllRows();
+        searchResultViewerModel.deleteAllRows();
+        searchButton.setEnabled(false);
+        searchLabel.setVisible(false);
+    }
+
+    private void handleLoadFileProgress(int progress) {
+        fileLoadProgressBar.setValue(progress);
+    }
+
+    private void handleLoadFileFinished(final File file, long startTime) {
+
+        fileLoadProgressBar.setValue(100);
+
+        searchButton.setEnabled(true);
+
+        final long elapsedTime = System.currentTimeMillis() - startTime;
+
+        final int lineCount = fileViewerModel.getRowCount();
+
+        Timer delayTimer = new Timer(500, new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                fileLoadProgressBar.setVisible(false);
+                fileStatusFillerPanel.setVisible(true);
+
+                if (lineCount == 1) {
+                    fileStatusLabel.setText(file.getAbsolutePath() + " (1 line, " + elapsedTime + " ms)");
+                } else {
+                    fileStatusLabel.setText(file.getAbsolutePath() + " (" + lineCount + " lines, " + elapsedTime + " ms)");
+                }
+
+                fileReloadButton.setEnabled(true);
+            }
+        });
+
+        delayTimer.setRepeats(false);
+
+        delayTimer.start();
+    }
+
+    private void handleSearchFileStart() {
+
+        searchButton.setEnabled(false);
+        searchLabel.setText("Searching...");
+        searchLabel.setVisible(true);
+        searchStatusFillerPanel.setVisible(false);
+        searchProgressBar.setVisible(true);
+
+        searchResultViewerModel.deleteAllRows();
+
+        searchResultViewerModel.setParentModel(fileViewerModel);
+
+        searchResultViewer.setColumnWidths(fileViewer.getColumnWidths());
+    }
+
+    private void handleSearchFileProgress(int progress) {
+        searchProgressBar.setValue(progress);
+    }
+
+    private void handleSearchFileFinished(long startTime) {
+
+        searchProgressBar.setValue(100);
+
+        int lineCount = searchResultViewerModel.getRowCount();
+
+        long elapsedTime = System.currentTimeMillis() - startTime;
+
+        if (lineCount == 1) {
+            searchLabel.setText("Found 1 line (" + elapsedTime + " ms)");
+        } else {
+            searchLabel.setText("Found " + lineCount + " lines (" + elapsedTime + " ms)");
+        }
+
+        searchButton.setEnabled(true);
+
+        Timer delayTimer = new Timer(1000, new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                searchProgressBar.setVisible(false);
+                searchStatusFillerPanel.setVisible(true);
+            }
+        });
+
+        delayTimer.setRepeats(false);
+
+        delayTimer.start();
     }
 
     private class SearchButtonActionListener implements ActionListener {
@@ -427,17 +506,7 @@ public class FileViewer extends JFrame {
         @Override
         public void actionPerformed(ActionEvent actionEvent) {
 
-            searchButton.setEnabled(false);
-            searchLabel.setText("Searching...");
-            searchLabel.setVisible(true);
-            searchStatusFillerPanel.setVisible(false);
-            searchProgressBar.setVisible(true);
-
-            searchResultViewerModel.deleteAllRows();
-
-            searchResultViewerModel.setParentModel(fileViewerModel);
-
-            searchResultViewer.setColumnWidths(fileViewer.getColumnWidths());
+            handleSearchFileStart();
 
             Filter filter = buildFilter();
 
@@ -520,7 +589,7 @@ public class FileViewer extends JFrame {
                 public void propertyChange(final PropertyChangeEvent event) {
 
                     if ("progress".equals(event.getPropertyName())) {
-                        searchProgressBar.setValue((Integer) event.getNewValue());
+                        handleSearchFileProgress((Integer) event.getNewValue());
                     }
                 }
             });
@@ -583,33 +652,7 @@ public class FileViewer extends JFrame {
 
         @Override
         public void done() {
-
-            searchProgressBar.setValue(100);
-
-            int lineCount = searchResultViewerModel.getRowCount();
-
-            long elapsedTime = System.currentTimeMillis() - startTime;
-
-            if (lineCount == 1) {
-                searchLabel.setText("Found 1 line (" + elapsedTime + " ms)");
-            } else {
-                searchLabel.setText("Found " + lineCount + " lines (" + elapsedTime + " ms)");
-            }
-
-            searchButton.setEnabled(true);
-
-            Timer delayTimer = new Timer(1000, new ActionListener() {
-
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    searchProgressBar.setVisible(false);
-                    searchStatusFillerPanel.setVisible(true);
-                }
-            });
-
-            delayTimer.setRepeats(false);
-
-            delayTimer.start();
+            handleSearchFileFinished(startTime);
         }
     }
 
@@ -642,7 +685,7 @@ public class FileViewer extends JFrame {
 
     public static void main(final String args[]) {
 
-        //createFile(new File("sample.txt"), 10000000);
+        // createFile(new File("sample.txt"), 10000000);
 
         SwingUtilities.invokeLater(new Runnable() {
 

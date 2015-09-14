@@ -1,11 +1,17 @@
 package com.fourpart.logfileviewer;
 
-import javax.swing.*;
+import javax.swing.JTable;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.BorderFactory;
 import javax.swing.border.Border;
 import javax.swing.table.DefaultTableColumnModel;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
-import java.awt.*;
+import java.awt.Font;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.Color;
 
 public class TextViewer extends JTable {
 
@@ -32,9 +38,8 @@ public class TextViewer extends JTable {
     @Override
     public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
         Component component = super.prepareRenderer(renderer, row, column);
-        int rendererWidth = component.getPreferredSize().width;
         TableColumn tableColumn = getColumnModel().getColumn(column);
-        tableColumn.setPreferredWidth(Math.max(rendererWidth + getIntercellSpacing().width, tableColumn.getPreferredWidth()));
+        tableColumn.setPreferredWidth(Math.max(columnWidths[column] + getIntercellSpacing().width, tableColumn.getPreferredWidth()));
         return component;
     }
 
@@ -44,21 +49,19 @@ public class TextViewer extends JTable {
 
         if (textViewerModel != null && textViewerModel.getRowCount() > 0) {
 
-            columnWidths = new int[textViewerModel.getRowCount()];
+            columnWidths = new int[textViewerModel.getColumnCount()];
 
-            for (int column = 0; column < textViewerModel.getColumnCount(); column++) {
+            for (int column = 0; column < columnWidths.length; column++) {
 
                 int row = textViewerModel.getLongestRow(column);
 
                 TableCellRenderer renderer = getCellRenderer(row, column);
-                Component comp = renderer.getTableCellRendererComponent(this, getValueAt(row, column), false, false, row, column);
+                Component component = renderer.getTableCellRendererComponent(this, getValueAt(row, column), false, false, row, column);
 
-                int width = comp.getPreferredSize().width + 2;
+                int width = component.getPreferredSize().width + 2;
 
                 columnWidths[column] = width;
             }
-
-            //applyColumnWidths();
         }
     }
 

@@ -87,7 +87,14 @@ public class FileViewer extends JFrame {
 
         setTitle("File Viewer");
 
-        setSize(1100, 700);
+        GraphicsConfiguration graphicsConfiguration = this.getGraphicsConfiguration();
+        Rectangle screenBounds = graphicsConfiguration.getBounds();
+        Insets screenInsets = Toolkit.getDefaultToolkit().getScreenInsets(graphicsConfiguration);
+
+        int screenWidth = (int)screenBounds.getWidth() - screenInsets.left - screenInsets.right;
+        int screenHeight = (int)screenBounds.getHeight() - screenInsets.top - screenInsets.bottom;
+
+        setSize(screenWidth, screenHeight);
         setLocationRelativeTo(null);
 
         fileChooser = new JFileChooser(new File("").getAbsoluteFile());

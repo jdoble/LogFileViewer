@@ -487,7 +487,7 @@ public class FileViewer extends JFrame {
 
         searchButton.setEnabled(true);
 
-        Timer delayTimer = new Timer(1000, new ActionListener() {
+        Timer delayTimer = new Timer(500, new ActionListener() {
 
             @Override
             public void actionPerformed(ActionEvent e) {

@@ -16,6 +16,8 @@ import java.awt.*;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.nio.ByteBuffer;
@@ -37,13 +39,17 @@ public class FileViewer extends JFrame {
     private JLabel fileStatusLabel;
     private JProgressBar fileLoadProgressBar;
     private JPanel fileStatusFillerPanel;
-    private JButton fileViewCopyButton;
+    private JMenuItem fileViewerCopyItem;
+    private JMenuItem fileViewerSelectAllItem;
     private JButton fileReloadButton;
     private TextViewer fileViewer;
     private FileViewerModel fileViewerModel;
 
     private TextViewer searchResultViewer;
     private FilteredViewerModel searchResultViewerModel;
+
+    private JMenuItem searchViewerCopyItem;
+    private JMenuItem searchViewerSelectAllItem;
 
     private JComboBox<String> filterBox1;
     private DefaultComboBoxModel<String> filterBoxModel1;
@@ -58,8 +64,6 @@ public class FileViewer extends JFrame {
     private JComboBox<FilterOperation> operationBox;
 
     private JCheckBox regexBox;
-
-    private JButton searchViewCopyButton;
 
     private JButton searchButton;
 
@@ -102,23 +106,11 @@ public class FileViewer extends JFrame {
         fileReloadButton.setEnabled(false);
         fileReloadButton.addActionListener(new FileReloadActionListener());
 
-        fileViewCopyButton = new JButton("Copy");
-        fileViewCopyButton.setEnabled(false);
-
-        fileViewCopyButton.addActionListener(new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent actionEvent) {
-                fileViewer.copy();
-            }
-        });
-
         GridBagPanel fileStatusPanel = new GridBagPanel();
         fileStatusPanel.addComponent(fileStatusLabel, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2));
         fileStatusPanel.addComponent(fileLoadProgressBar, 0, 1, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(2, 6, 2, 2));
         fileStatusPanel.addComponent(fileStatusFillerPanel, 0, 2, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0));
-        fileStatusPanel.addComponent(fileViewCopyButton, 0, 3, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2));
-        fileStatusPanel.addComponent(fileReloadButton, 0, 4, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2));
+        fileStatusPanel.addComponent(fileReloadButton, 0, 3, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2));
 
         fileViewer = new TextViewer(fileViewerModel);
         fileViewer.setShowGrid(false);
@@ -133,12 +125,14 @@ public class FileViewer extends JFrame {
 
                 int[] selectedRows = fileViewer.getSelectedRows();
 
-                fileViewCopyButton.setEnabled(selectedRows.length > 0);
+                fileViewerCopyItem.setEnabled(selectedRows.length > 0);
             }
         });
 
         JScrollPane fileScrollPane = new JScrollPane(fileViewer, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         fileScrollPane.getViewport().setBackground(Color.white);
+
+        createFileViewerPopupMenu(fileViewer, fileScrollPane);
 
         GridBagPanel filePanel = new GridBagPanel();
 
@@ -166,25 +160,13 @@ public class FileViewer extends JFrame {
         searchButton.addActionListener(new SearchButtonActionListener());
         getRootPane().setDefaultButton(searchButton);
 
-        searchViewCopyButton = new JButton("Copy");
-        searchViewCopyButton.setEnabled(false);
-
-        searchViewCopyButton.addActionListener(new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent actionEvent) {
-                searchResultViewer.copy();
-            }
-        });
-
         GridBagPanel filterControlPanel = new GridBagPanel();
         filterControlPanel.addComponent(filterBox1, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 2, 2, 0));
         filterControlPanel.addComponent(operationBox, 0, 1, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 2, 2, 0));
         filterControlPanel.addComponent(filterBox2, 0, 2, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 2, 2, 0));
         filterControlPanel.addComponent(new JPanel(), 0, 3, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0));
         filterControlPanel.addComponent(regexBox, 0, 4, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(3, 2, 2, 4));
-        filterControlPanel.addComponent(searchViewCopyButton, 0, 5, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(3, 2, 2, 2));
-        filterControlPanel.addComponent(searchButton, 0, 6, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(3, 2, 2, 2));
+        filterControlPanel.addComponent(searchButton, 0, 5, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(3, 2, 2, 2));
 
         searchResultViewerModel = new FilteredViewerModel();
         searchResultViewer = new TextViewer(searchResultViewerModel);
@@ -200,7 +182,7 @@ public class FileViewer extends JFrame {
 
                 int[] selectedRows = searchResultViewer.getSelectedRows();
 
-                searchViewCopyButton.setEnabled(selectedRows.length > 0);
+                searchViewerCopyItem.setEnabled(selectedRows.length > 0);
 
                 if (selectedRows.length != 1) {
                     return;
@@ -216,6 +198,8 @@ public class FileViewer extends JFrame {
 
         JScrollPane searchScrollPane = new JScrollPane(searchResultViewer, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         searchScrollPane.getViewport().setBackground(Color.white);
+
+        createSearchViewerPopupMenu(searchResultViewer, searchScrollPane);
 
         GridBagPanel searchPanel = new GridBagPanel();
 
@@ -282,6 +266,123 @@ public class FileViewer extends JFrame {
         menuBar.add(fileMenu);
 
         setJMenuBar(menuBar);
+    }
+
+    private void createFileViewerPopupMenu(Component... components) {
+
+        final JPopupMenu popupMenu = new JPopupMenu();
+
+        fileViewerCopyItem = new JMenuItem("Copy");
+        fileViewerCopyItem.setEnabled(false);
+
+        fileViewerCopyItem.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+
+                try {
+                    fileViewer.copy();
+                } catch (OutOfMemoryError e) {
+                    JOptionPane.showMessageDialog(FileViewer.this,
+                            "Selection is too large to copy (not enough memory).",
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        popupMenu.add(fileViewerCopyItem);
+
+        fileViewerSelectAllItem = new JMenuItem("Select All");
+        fileViewerSelectAllItem.setEnabled(false);
+
+        fileViewerSelectAllItem.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                fileViewer.selectAll();
+            }
+        });
+
+        popupMenu.add(fileViewerSelectAllItem);
+
+        for (Component component : components) {
+            component.addMouseListener(new MouseAdapter() {
+
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    if (e.isPopupTrigger()) {
+                        popupMenu.show(e.getComponent(), e.getX(), e.getY());
+                    }
+                }
+
+                @Override
+                public void mouseReleased(MouseEvent e) {
+                    if (e.isPopupTrigger()) {
+                        popupMenu.show(e.getComponent(), e.getX(), e.getY());
+                    }
+                }
+            });
+        }
+    }
+
+    private void createSearchViewerPopupMenu(Component... components) {
+
+        final JPopupMenu popupMenu = new JPopupMenu();
+
+        searchViewerCopyItem = new JMenuItem("Copy");
+        searchViewerCopyItem.setEnabled(false);
+
+        searchViewerCopyItem.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+
+                try {
+                    searchResultViewer.copy();
+                } catch (OutOfMemoryError e) {
+                    JOptionPane.showMessageDialog(FileViewer.this,
+                            "Selection is too large to copy (not enough memory).",
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        popupMenu.add(searchViewerCopyItem);
+
+        searchViewerSelectAllItem = new JMenuItem("Select All");
+        searchViewerSelectAllItem.setEnabled(false);
+
+        searchViewerSelectAllItem.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                searchResultViewer.selectAll();
+            }
+        });
+
+        popupMenu.add(searchViewerSelectAllItem);
+
+        for (Component component : components) {
+
+            component.addMouseListener(new MouseAdapter() {
+
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    if (e.isPopupTrigger()) {
+                        popupMenu.show(e.getComponent(), e.getX(), e.getY());
+                    }
+                }
+
+                @Override
+                public void mouseReleased(MouseEvent e) {
+                    if (e.isPopupTrigger()) {
+                        popupMenu.show(e.getComponent(), e.getX(), e.getY());
+                    }
+                }
+            });
+        }
     }
 
     private class FileOpenActionListener implements ActionListener {
@@ -429,10 +530,16 @@ public class FileViewer extends JFrame {
         fileStatusFillerPanel.setVisible(false);
         fileReloadButton.setEnabled(false);
 
+        fileViewerCopyItem.setEnabled(false);
+        fileViewerSelectAllItem.setEnabled(false);
+
         fileViewerModel.deleteAllRows();
         searchResultViewerModel.deleteAllRows();
         searchButton.setEnabled(false);
         searchLabel.setVisible(false);
+
+        searchViewerCopyItem.setEnabled(false);
+        searchViewerSelectAllItem.setEnabled(false);
     }
 
     private void handleLoadFileProgress(int progress) {
@@ -442,6 +549,8 @@ public class FileViewer extends JFrame {
     private void handleLoadFileFinished(final File file, long startTime) {
 
         fileLoadProgressBar.setValue(100);
+
+        fileViewerSelectAllItem.setEnabled(true);
 
         searchButton.setEnabled(true);
 
@@ -479,6 +588,9 @@ public class FileViewer extends JFrame {
         searchStatusFillerPanel.setVisible(false);
         searchProgressBar.setVisible(true);
 
+        searchViewerCopyItem.setEnabled(false);
+        searchViewerSelectAllItem.setEnabled(false);
+
         searchResultViewerModel.deleteAllRows();
 
         searchResultViewerModel.setParentModel(fileViewerModel);
@@ -493,6 +605,8 @@ public class FileViewer extends JFrame {
     private void handleSearchFileFinished(long startTime) {
 
         searchProgressBar.setValue(100);
+
+        searchViewerSelectAllItem.setEnabled(true);
 
         int lineCount = searchResultViewerModel.getRowCount();
 

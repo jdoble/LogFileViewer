@@ -8,25 +8,7 @@ import com.fourpart.logfileviewer.filter.OrFilter;
 import com.fourpart.logfileviewer.filter.RegExFilter;
 import com.fourpart.logfileviewer.filter.SimpleFilter;
 
-import javax.swing.DefaultComboBoxModel;
-import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
-import javax.swing.JFrame;
-import javax.swing.JFileChooser;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JProgressBar;
-import javax.swing.JScrollPane;
-import javax.swing.JButton;
-import javax.swing.ListSelectionModel;
-import javax.swing.JSplitPane;
-import javax.swing.JMenu;
-import javax.swing.JMenuBar;
-import javax.swing.JMenuItem;
-import javax.swing.SwingWorker;
-import javax.swing.Timer;
-import javax.swing.SwingUtilities;
-import javax.swing.WindowConstants;
+import javax.swing.*;
 
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
@@ -55,6 +37,7 @@ public class FileViewer extends JFrame {
     private JLabel fileStatusLabel;
     private JProgressBar fileLoadProgressBar;
     private JPanel fileStatusFillerPanel;
+    private JButton fileViewCopyButton;
     private JButton fileReloadButton;
     private TextViewer fileViewer;
     private FileViewerModel fileViewerModel;
@@ -75,6 +58,8 @@ public class FileViewer extends JFrame {
     private JComboBox<FilterOperation> operationBox;
 
     private JCheckBox regexBox;
+
+    private JButton searchViewCopyButton;
 
     private JButton searchButton;
 
@@ -102,12 +87,7 @@ public class FileViewer extends JFrame {
 
         // File Viewer Panel
 
-        try {
-            fileViewerModel = new FileViewerModel();
-        } catch (Exception e) {
-            e.printStackTrace();
-            return;
-        }
+        fileViewerModel = new FileViewerModel();
 
         fileStatusLabel = new JLabel();
         fileStatusLabel.setVisible(false);
@@ -122,15 +102,40 @@ public class FileViewer extends JFrame {
         fileReloadButton.setEnabled(false);
         fileReloadButton.addActionListener(new FileReloadActionListener());
 
+        fileViewCopyButton = new JButton("Copy");
+        fileViewCopyButton.setEnabled(false);
+
+        fileViewCopyButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                fileViewer.copy();
+            }
+        });
+
         GridBagPanel fileStatusPanel = new GridBagPanel();
         fileStatusPanel.addComponent(fileStatusLabel, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2));
         fileStatusPanel.addComponent(fileLoadProgressBar, 0, 1, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(2, 6, 2, 2));
         fileStatusPanel.addComponent(fileStatusFillerPanel, 0, 2, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0));
-        fileStatusPanel.addComponent(fileReloadButton, 0, 3, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2));
+        fileStatusPanel.addComponent(fileViewCopyButton, 0, 3, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2));
+        fileStatusPanel.addComponent(fileReloadButton, 0, 4, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2));
 
         fileViewer = new TextViewer(fileViewerModel);
         fileViewer.setShowGrid(false);
         fileViewer.setIntercellSpacing(new Dimension(0, 0));
+
+        ListSelectionModel fileViewerSelectionModel = fileViewer.getSelectionModel();
+        fileViewerSelectionModel.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+
+        fileViewerSelectionModel.addListSelectionListener(new ListSelectionListener() {
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+
+                int[] selectedRows = fileViewer.getSelectedRows();
+
+                fileViewCopyButton.setEnabled(selectedRows.length > 0);
+            }
+        });
 
         JScrollPane fileScrollPane = new JScrollPane(fileViewer, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         fileScrollPane.getViewport().setBackground(Color.white);
@@ -161,13 +166,25 @@ public class FileViewer extends JFrame {
         searchButton.addActionListener(new SearchButtonActionListener());
         getRootPane().setDefaultButton(searchButton);
 
+        searchViewCopyButton = new JButton("Copy");
+        searchViewCopyButton.setEnabled(false);
+
+        searchViewCopyButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                searchResultViewer.copy();
+            }
+        });
+
         GridBagPanel filterControlPanel = new GridBagPanel();
         filterControlPanel.addComponent(filterBox1, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 2, 2, 0));
         filterControlPanel.addComponent(operationBox, 0, 1, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 2, 2, 0));
         filterControlPanel.addComponent(filterBox2, 0, 2, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 2, 2, 0));
         filterControlPanel.addComponent(new JPanel(), 0, 3, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0));
         filterControlPanel.addComponent(regexBox, 0, 4, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(3, 2, 2, 4));
-        filterControlPanel.addComponent(searchButton, 0, 5, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(3, 2, 2, 2));
+        filterControlPanel.addComponent(searchViewCopyButton, 0, 5, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(3, 2, 2, 2));
+        filterControlPanel.addComponent(searchButton, 0, 6, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(3, 2, 2, 2));
 
         searchResultViewerModel = new FilteredViewerModel();
         searchResultViewer = new TextViewer(searchResultViewerModel);
@@ -175,23 +192,25 @@ public class FileViewer extends JFrame {
         searchResultViewer.setIntercellSpacing(new Dimension(0, 0));
 
         ListSelectionModel searchResultViewerSelectionModel = searchResultViewer.getSelectionModel();
-        searchResultViewerSelectionModel.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        searchResultViewerSelectionModel.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
 
         searchResultViewerSelectionModel.addListSelectionListener(new ListSelectionListener() {
             @Override
             public void valueChanged(ListSelectionEvent e) {
 
-                int selectedRow = searchResultViewer.getSelectedRow();
+                int[] selectedRows = searchResultViewer.getSelectedRows();
 
-                if (selectedRow < 0) {
+                searchViewCopyButton.setEnabled(selectedRows.length > 0);
+
+                if (selectedRows.length != 1) {
                     return;
                 }
 
-                int fileRow = searchResultViewerModel.getFileRow(selectedRow);
+                int fileRow = searchResultViewerModel.getFileRow(selectedRows[0]);
 
                 fileViewer.getSelectionModel().setSelectionInterval(fileRow, fileRow);
                 fileViewer.getSelectionModel().setSelectionInterval(fileRow, fileRow);
-                fileViewer.scrollRectToVisible(new Rectangle(fileViewer.getCellRect(fileRow, 0, true)));
+                fileViewer.scrollToCenter(fileRow, 0);
             }
         });
 

@@ -86,20 +86,58 @@ public class FileViewerModel extends AbstractTableModel implements TextViewerMod
 
                 try {
 
-                    // TODO: Calculate the needed length.
-                    ByteBuffer buf = ByteBuffer.allocate(8 * 1024);
-
-                    Long pos = this.rowIndex.get(rowIndex);
-
-                    int bytesRead = fileChannel.read(buf, pos);
-
-                    buf.rewind();
-
                     if (rowIndex == rowCount - 1) {
-                        return new String(buf.array(), 0, Math.max(0, bytesRead));
+
+                        // This is the last line in the file, but the file may have
+                        // grown since we last scanned it, so we read from the start
+                        // of the line to the first new line character, or the end
+                        // of the file, whichever comes first.
+
+                        StringBuilder sb = new StringBuilder();
+
+                        Long pos = this.rowIndex.get(rowIndex);
+
+                        ByteBuffer buf = ByteBuffer.allocate(8 * 1024);
+
+                        while (true) {
+
+                            long bytesRead = fileChannel.read(buf, pos);
+
+                            if (bytesRead < 0) {
+                                break;
+                            }
+
+                            buf.rewind();
+
+                            byte[] bytes = buf.array();
+
+                            for (int offset = 0; offset < bytesRead; offset++) {
+
+                                char c = (char) bytes[offset];
+
+                                if (c == '\n') {
+                                    return sb.toString();
+                                }
+
+                                sb.append(c);
+                            }
+                        }
+
+                        return sb.toString();
                     }
                     else {
-                        return new String(buf.array(), 0, (int) (long) (this.rowIndex.get(rowIndex + 1) - pos));
+
+                        Long pos = this.rowIndex.get(rowIndex);
+
+                        int length = (int)(this.rowIndex.get(rowIndex + 1) - pos - 1);
+
+                        ByteBuffer buf = ByteBuffer.allocate(length);
+
+                        fileChannel.read(buf, pos);
+
+                        buf.rewind();
+
+                        return new String(buf.array(), 0, length);
                     }
 
                 } catch (Exception e) {

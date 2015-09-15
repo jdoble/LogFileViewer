@@ -1,17 +1,13 @@
 package com.fourpart.logfileviewer;
 
-import javax.swing.JTable;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.BorderFactory;
+import javax.swing.*;
 import javax.swing.border.Border;
 import javax.swing.table.DefaultTableColumnModel;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
-import java.awt.Font;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.Color;
+import java.awt.*;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.StringSelection;
 
 public class TextViewer extends JTable {
 
@@ -33,6 +29,61 @@ public class TextViewer extends JTable {
         setIntercellSpacing(new Dimension(0, 0));
 
         setDefaultRenderer(Object.class, new CustomRenderer());
+    }
+
+    public void scrollToCenter(int row, int column) {
+
+        //scrollRectToVisible(new Rectangle(getCellRect(row, 0, true)));
+
+        if (!(getParent() instanceof JViewport)) {
+            return;
+        }
+
+        JViewport viewport = (JViewport)getParent();
+        Rectangle rect = getCellRect(row, column, true);
+        Rectangle viewRect = viewport.getViewRect();
+        rect.setLocation(rect.x - viewRect.x, rect.y - viewRect.y);
+
+        int centerX = (viewRect.width - rect.width) / 2;
+        int centerY = (viewRect.height - rect.height) / 2;
+
+        if (rect.x < centerX) {
+            centerX = -centerX;
+        }
+
+        if (rect.y < centerY) {
+            centerY = -centerY;
+        }
+
+        rect.translate(centerX, centerY);
+        viewport.scrollRectToVisible(rect);
+    }
+
+    public void copy() {
+
+        StringBuilder sb = new StringBuilder();
+
+        for (int row : getSelectedRows()) {
+
+            if (sb.length() > 0) {
+                sb.append('\n');
+            }
+
+            sb.append(getValueAt(row, 1));
+        }
+
+        if (sb.length() > 0) {
+            Clipboard clipboard = getSystemClipboard();
+            clipboard.setContents(new StringSelection(sb.toString()), null);
+        }
+    }
+
+    private static Clipboard getSystemClipboard() {
+
+        Toolkit defaultToolkit = Toolkit.getDefaultToolkit();
+        Clipboard systemClipboard = defaultToolkit.getSystemClipboard();
+
+        return systemClipboard;
     }
 
     @Override

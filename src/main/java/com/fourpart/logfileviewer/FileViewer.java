@@ -14,6 +14,8 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import java.awt.*;
 
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
@@ -72,6 +74,8 @@ public class FileViewer extends JFrame {
     private JProgressBar searchProgressBar;
 
     private JPanel searchStatusFillerPanel;
+
+    private ProgressMonitor progressMonitor;
 
     public FileViewer() {
 
@@ -279,15 +283,8 @@ public class FileViewer extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-
-                try {
-                    fileViewer.copy();
-                } catch (OutOfMemoryError e) {
-                    JOptionPane.showMessageDialog(FileViewer.this,
-                            "Selection is too large to copy (not enough memory).",
-                            "Error",
-                            JOptionPane.ERROR_MESSAGE);
-                }
+                handleCopyStart();
+                new CopySwingWorker(fileViewer).execute();
             }
         });
 
@@ -300,7 +297,10 @@ public class FileViewer extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
+                FileViewer.this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
                 fileViewer.selectAll();
+                FileViewer.this.setCursor(Cursor.getDefaultCursor());
+
             }
         });
 
@@ -337,15 +337,8 @@ public class FileViewer extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-
-                try {
-                    searchResultViewer.copy();
-                } catch (OutOfMemoryError e) {
-                    JOptionPane.showMessageDialog(FileViewer.this,
-                            "Selection is too large to copy (not enough memory).",
-                            "Error",
-                            JOptionPane.ERROR_MESSAGE);
-                }
+                handleCopyStart();
+                new CopySwingWorker(searchResultViewer).execute();
             }
         });
 
@@ -358,7 +351,9 @@ public class FileViewer extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
+                FileViewer.this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
                 searchResultViewer.selectAll();
+                FileViewer.this.setCursor(Cursor.getDefaultCursor());
             }
         });
 
@@ -634,6 +629,26 @@ public class FileViewer extends JFrame {
         delayTimer.start();
     }
 
+    private void handleCopyStart() {
+        FileViewer.this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        progressMonitor = new ProgressMonitor(FileViewer.this, "Copying", "", 0, 100);
+    }
+
+    private void handleCopyProgress(int progress) {
+        progressMonitor.setProgress(progress);
+    }
+
+    private void handleCopyFinished(String errorMessage) {
+
+        progressMonitor.close();
+
+        FileViewer.this.setCursor(Cursor.getDefaultCursor());
+
+        if (errorMessage != null) {
+            JOptionPane.showMessageDialog(FileViewer.this, errorMessage, "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
     private class SearchButtonActionListener implements ActionListener {
 
         @Override
@@ -786,6 +801,69 @@ public class FileViewer extends JFrame {
         @Override
         public void done() {
             handleSearchFileFinished(startTime);
+        }
+    }
+
+    private class CopySwingWorker extends SwingWorker<String, Void> {
+
+        private TextViewer textViewer;
+        private int[] selectedRows;
+
+        private CopySwingWorker(TextViewer textViewer) {
+
+            this.textViewer = textViewer;
+            this.selectedRows = textViewer.getSelectedRows();
+
+            addPropertyChangeListener(new PropertyChangeListener() {
+
+                @Override
+                public void propertyChange(final PropertyChangeEvent event) {
+
+                    if ("progress".equals(event.getPropertyName())) {
+                        handleCopyProgress((Integer) event.getNewValue());
+                    }
+                }
+            });
+        }
+
+        @Override
+        protected String doInBackground() throws Exception {
+
+            try {
+                StringBuilder sb = new StringBuilder();
+
+                for (int row = 0; row < selectedRows.length; row++) {
+
+                    if (sb.length() > 0) {
+                        sb.append('\n');
+                    }
+
+                    sb.append(textViewer.getValueAt(row, 1));
+
+                    setProgress((row * 100) / selectedRows.length);
+                }
+
+                if (sb.length() > 0) {
+                    Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+                    clipboard.setContents(new StringSelection(sb.toString()), null);
+                }
+
+                return null;
+            }
+            catch (OutOfMemoryError e) {
+                return "Selection is too large to copy (not enough memory).";
+            }
+        }
+
+        @Override
+        public void done() {
+
+            try {
+                handleCopyFinished(get());
+            }
+            catch (Exception e) {
+                handleCopyFinished(e.toString());
+            }
         }
     }
 

@@ -13,7 +13,7 @@ public class FilteredViewerModel extends AbstractTableModel implements TextViewe
     private TextViewerModel parentModel;
 
     public FilteredViewerModel() {
-        rowIndex = new ArrayList<Integer>();
+        rowIndex = new ArrayList<>();
         rowCount = 0;
     }
 

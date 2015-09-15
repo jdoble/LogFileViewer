@@ -20,7 +20,7 @@ public class FileViewerModel extends AbstractTableModel implements TextViewerMod
     private int rowIndexForLongestValue;
 
     public FileViewerModel() {
-        rowIndex = new ArrayList<Long>();
+        rowIndex = new ArrayList<>();
         rowCount = 0;
     }
 

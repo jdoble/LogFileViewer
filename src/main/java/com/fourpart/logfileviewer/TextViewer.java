@@ -73,17 +73,9 @@ public class TextViewer extends JTable {
         }
 
         if (sb.length() > 0) {
-            Clipboard clipboard = getSystemClipboard();
+            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
             clipboard.setContents(new StringSelection(sb.toString()), null);
         }
-    }
-
-    private static Clipboard getSystemClipboard() {
-
-        Toolkit defaultToolkit = Toolkit.getDefaultToolkit();
-        Clipboard systemClipboard = defaultToolkit.getSystemClipboard();
-
-        return systemClipboard;
     }
 
     @Override

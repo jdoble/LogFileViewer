@@ -121,6 +121,8 @@ public class FileViewerModel extends AbstractTableModel implements TextViewerMod
 
                                 sb.append(c);
                             }
+
+                            pos += bytesRead;
                         }
 
                         return sb.toString();

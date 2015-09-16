@@ -4,7 +4,7 @@ import javax.swing.table.AbstractTableModel;
 import java.util.ArrayList;
 import java.util.List;
 
-public class FilteredViewerModel extends AbstractTableModel implements TextViewerModel {
+public class SearchResultViewerModel extends AbstractTableModel implements TextViewerModel {
 
     private int rowCount;
 
@@ -12,7 +12,7 @@ public class FilteredViewerModel extends AbstractTableModel implements TextViewe
 
     private TextViewerModel parentModel;
 
-    public FilteredViewerModel() {
+    public SearchResultViewerModel() {
         rowIndex = new ArrayList<>();
         rowCount = 0;
     }

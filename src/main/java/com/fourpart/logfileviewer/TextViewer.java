@@ -6,8 +6,6 @@ import javax.swing.table.DefaultTableColumnModel;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 import java.awt.*;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.StringSelection;
 
 public class TextViewer extends JTable {
 
@@ -16,6 +14,12 @@ public class TextViewer extends JTable {
     public TextViewer(TextViewerModel textViewerModel) {
 
         super(textViewerModel);
+
+        // We do not want to display a table grid
+        setShowGrid(false);
+
+        // We do not want any intercell spacing, because we are trying to look like a text editor
+        setIntercellSpacing(new Dimension(0, 0));
 
         // We use a monospace font to simplify the process of determining which line of content is longest
         setFont(new Font("Monospaced", Font.PLAIN, 12));
@@ -26,14 +30,16 @@ public class TextViewer extends JTable {
         // This ensures that horizontal scroll bars will appear as needed
         setAutoResizeMode(AUTO_RESIZE_OFF);
 
-        setIntercellSpacing(new Dimension(0, 0));
-
+        // We use a custom renderer, in order to add a border to the right-hand side of the line number cells
         setDefaultRenderer(Object.class, new CustomRenderer());
     }
 
     public void scrollToCenter(int row, int column) {
 
-        //scrollRectToVisible(new Rectangle(getCellRect(row, 0, true)));
+        // scrollRectToVisible(new Rectangle(getCellRect(row, 0, true)));
+
+        // Instead of simply calling "scrollRectToVisible" we will use the following logic
+        // that will attempt to center the selected row/column within the scroll pane
 
         if (!(getParent() instanceof JViewport)) {
             return;
@@ -59,34 +65,25 @@ public class TextViewer extends JTable {
         viewport.scrollRectToVisible(rect);
     }
 
-    public void copy() {
-
-        StringBuilder sb = new StringBuilder();
-
-        for (int row : getSelectedRows()) {
-
-            if (sb.length() > 0) {
-                sb.append('\n');
-            }
-
-            sb.append(getValueAt(row, 1));
-        }
-
-        if (sb.length() > 0) {
-            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-            clipboard.setContents(new StringSelection(sb.toString()), null);
-        }
-    }
-
     @Override
     public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
+
+        // It is not clear why we need to set the table column's preferred width every time
+        // we prepare a renderer, as opposed to just doing it once, but this seems to work
+        // better on Windows systems. Otherwise, we sometimes have truncated cells (i.e.
+        // with ellipses).
+
         Component component = super.prepareRenderer(renderer, row, column);
+
         TableColumn tableColumn = getColumnModel().getColumn(column);
         tableColumn.setPreferredWidth(Math.max(columnWidths[column] + getIntercellSpacing().width, tableColumn.getPreferredWidth()));
+
         return component;
     }
 
     public void calculateColumnWidths() {
+
+        // Calculate the column widths necessary to accommodate the longest row in each column.
 
         TextViewerModel textViewerModel = getTextViewerModel();
 
@@ -110,17 +107,19 @@ public class TextViewer extends JTable {
 
     public int[] getColumnWidths() {
 
+        /*
         for (int column = 0; column < 2; column++) {
             TableColumn tableColumn = getColumnModel().getColumn(column);
             columnWidths[column] = tableColumn.getPreferredWidth();
         }
+        */
 
         return columnWidths;
     }
 
     public void setColumnWidths(int[] columnWidths) {
         this.columnWidths = columnWidths;
-        applyColumnWidths();
+        //applyColumnWidths();
     }
 
     private void applyColumnWidths() {

@@ -481,14 +481,14 @@ public class LogFileViewer extends JFrame {
                             publish(nextIndex);
                         }
 
-                        lastRowIndex++;
-
                         int lineLength = (int) (nextIndex - lastIndex);
 
                         if (lineLength > longestLineLength) {
                             longestLineLength = lineLength;
                             rowIndexForLongestValue = lastRowIndex;
                         }
+
+                        lastRowIndex++;
 
                         lastIndex = nextIndex;
                     }
@@ -541,7 +541,6 @@ public class LogFileViewer extends JFrame {
     }
 
     private void handleLoadFileFinished(final File file, long startTime) {
-
 
         fileLoadProgressBar.setValue(100);
 

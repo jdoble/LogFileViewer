@@ -65,22 +65,6 @@ public class TextViewer extends JTable {
         viewport.scrollRectToVisible(rect);
     }
 
-    @Override
-    public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
-
-        // It is not clear why we need to set the table column's preferred width every time
-        // we prepare a renderer, as opposed to just doing it once, but this seems to work
-        // better on Windows systems. Otherwise, we sometimes have truncated cells (i.e.
-        // with ellipses).
-
-        Component component = super.prepareRenderer(renderer, row, column);
-
-        TableColumn tableColumn = getColumnModel().getColumn(column);
-        tableColumn.setPreferredWidth(Math.max(columnWidths[column] + getIntercellSpacing().width, tableColumn.getPreferredWidth()));
-
-        return component;
-    }
-
     public void calculateColumnWidths() {
 
         // Calculate the column widths necessary to accommodate the longest row in each column.
@@ -103,23 +87,17 @@ public class TextViewer extends JTable {
                 columnWidths[column] = width;
             }
         }
+
+        applyColumnWidths();
     }
 
     public int[] getColumnWidths() {
-
-        /*
-        for (int column = 0; column < 2; column++) {
-            TableColumn tableColumn = getColumnModel().getColumn(column);
-            columnWidths[column] = tableColumn.getPreferredWidth();
-        }
-        */
-
         return columnWidths;
     }
 
     public void setColumnWidths(int[] columnWidths) {
         this.columnWidths = columnWidths;
-        //applyColumnWidths();
+        applyColumnWidths();
     }
 
     private void applyColumnWidths() {

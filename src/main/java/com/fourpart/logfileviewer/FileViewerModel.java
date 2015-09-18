@@ -59,6 +59,10 @@ public class FileViewerModel extends AbstractTableModel implements TextViewerMod
         this.rowIndexForLongestValue = rowIndexForLongestValue;
     }
 
+    public int getRowIndexForLongestValue() {
+        return rowIndexForLongestValue;
+    }
+
     @Override
     public int getColumnCount() {
         return 2;
@@ -80,7 +84,7 @@ public class FileViewerModel extends AbstractTableModel implements TextViewerMod
         switch (columnIndex) {
 
             case 0:
-                return Integer.toString(rowIndex);
+                return Integer.toString(rowIndex+1);
 
             case 1:
 

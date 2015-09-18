@@ -24,6 +24,8 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import java.io.File;
@@ -44,6 +46,7 @@ public class LogFileViewer extends JFrame {
     private JPanel fileStatusFillerPanel;
     private JMenuItem fileViewerCopyItem;
     private JMenuItem fileViewerSelectAllItem;
+    private JMenuItem fileViewerGoToLineItem;
     private JButton fileReloadButton;
 
     private TextViewer fileViewer;
@@ -197,7 +200,6 @@ public class LogFileViewer extends JFrame {
                 int fileRow = searchResultViewerModel.getFileRow(selectedRows[0]);
 
                 fileViewer.getSelectionModel().setSelectionInterval(fileRow, fileRow);
-                fileViewer.getSelectionModel().setSelectionInterval(fileRow, fileRow);
                 fileViewer.scrollToCenter(fileRow, 0);
             }
         });
@@ -307,6 +309,46 @@ public class LogFileViewer extends JFrame {
         });
 
         popupMenu.add(fileViewerSelectAllItem);
+
+        popupMenu.addSeparator();
+
+        fileViewerGoToLineItem = new JMenuItem("Go To Line...");
+        fileViewerGoToLineItem.setEnabled(false);
+
+        fileViewerGoToLineItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+
+                String lineNumberString = JOptionPane.showInputDialog(LogFileViewer.this, "Enter line number", "Go To Line", JOptionPane.PLAIN_MESSAGE);
+
+                if (lineNumberString == null) {
+                    return;
+                }
+
+                int lineNumber;
+
+                try {
+                    //int fileRow = fileViewerModel.getRowIndexForLongestValue();
+                    lineNumber = Integer.parseInt(lineNumberString);
+                }
+                catch (NumberFormatException e) {
+                    error("Invalid line number: " + lineNumberString);
+                    return;
+                }
+
+                if (lineNumber <= 0 || lineNumber > fileViewerModel.getRowCount()) {
+                    error("Line number is out of range: " + lineNumberString);
+                    return;
+                }
+
+                int rowIndex = lineNumber - 1;
+
+                fileViewer.getSelectionModel().setSelectionInterval(rowIndex, rowIndex);
+                fileViewer.scrollToCenter(rowIndex, 0);
+            }
+        });
+
+        popupMenu.add(fileViewerGoToLineItem);
 
         for (Component component : components) {
             component.addMouseListener(new MouseAdapter() {
@@ -526,6 +568,7 @@ public class LogFileViewer extends JFrame {
 
         fileViewerCopyItem.setEnabled(false);
         fileViewerSelectAllItem.setEnabled(false);
+        fileViewerGoToLineItem.setEnabled(false);
 
         fileViewerModel.deleteAllRows();
         searchResultViewerModel.deleteAllRows();
@@ -547,6 +590,7 @@ public class LogFileViewer extends JFrame {
         fileViewer.calculateColumnWidths();
 
         fileViewerSelectAllItem.setEnabled(true);
+        fileViewerGoToLineItem.setEnabled(true);
 
         searchButton.setEnabled(true);
 
@@ -564,7 +608,7 @@ public class LogFileViewer extends JFrame {
                 if (lineCount == 1) {
                     fileStatusLabel.setText(file.getAbsolutePath() + " (1 line, " + elapsedTime + " ms)");
                 } else {
-                    fileStatusLabel.setText(file.getAbsolutePath() + " (" + lineCount + " lines, " + elapsedTime + " ms)");
+                    fileStatusLabel.setText(file.getAbsolutePath() + " (" + lineCount + " lines, " + elapsedTime + " ms, " + (fileViewerModel.getRowIndexForLongestValue() + 1) + ")" );
                 }
 
                 fileReloadButton.setEnabled(true);
@@ -646,7 +690,7 @@ public class LogFileViewer extends JFrame {
         LogFileViewer.this.setCursor(Cursor.getDefaultCursor());
 
         if (errorMessage != null) {
-            JOptionPane.showMessageDialog(LogFileViewer.this, errorMessage, "Error", JOptionPane.ERROR_MESSAGE);
+            error(errorMessage);
         }
     }
 
@@ -880,7 +924,36 @@ public class LogFileViewer extends JFrame {
         }
     }
 
+    private void error(String message) {
+        JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
+    }
+
     private static void createFile(File file, int lineCount) {
+
+        List<String> phraseList = new java.util.ArrayList<>();
+
+        phraseList.add("the rain in Spain falls mainly on the plane");
+        phraseList.add("roses are red violets are blue sugar is sweet and so are you");
+        phraseList.add("a bird in the hand is worth two in the bush");
+
+        java.util.Set<String> wordSet = new java.util.TreeSet<>();
+
+        for (String phrase : phraseList) {
+
+            for (String word : phrase.split("\\s+")) {
+                wordSet.add(word);
+            }
+        }
+
+        String[] words = new String[wordSet.size()];
+
+        int index = 0;
+
+        for (String word : wordSet) {
+            words[index++] = word;
+        }
+
+        java.util.Random random = new java.util.Random();
 
         PrintWriter out = null;
 
@@ -889,10 +962,22 @@ public class LogFileViewer extends JFrame {
             out = new PrintWriter(new BufferedWriter(new FileWriter(file)));
 
             for (int i = 0; i < lineCount; i++) {
-                out.println("There are " + i + " bottles of root beer in the wall.");
-            }
 
-            out.println("A short line.");
+                int wordCount = random.nextInt(100);
+
+                StringBuilder sb = new StringBuilder();
+
+                for (int j = 0; j < wordCount; j++) {
+
+                    if (j > 0) {
+                        sb.append(' ');
+                    }
+
+                    sb.append(words[random.nextInt(words.length)]);
+                }
+
+                out.println(sb.toString());
+            }
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
@@ -907,9 +992,59 @@ public class LogFileViewer extends JFrame {
         }
     }
 
-    public static void main(final String args[]) {
+    private static void usage() {
+        System.out.println("Usage: java -jar LogFileViewer-<version>.jar [-createSample <file-to-create> <number-of-lines>] [<file-to-open>]");
+        System.exit(0);
+    }
 
-        // createFile(new File("sample.txt"), 10000000);
+    private static String getNextStringArgument(Iterator<String> iter, boolean remove) {
+
+        if (!iter.hasNext()) {
+            usage();
+        }
+
+        String result = iter.next();
+
+        if (remove) {
+            iter.remove();
+        }
+
+        return result;
+    }
+
+    private static int getNextIntArgument(Iterator<String> iter, boolean remove) {
+
+        String argString = getNextStringArgument(iter, remove);
+
+        try {
+            return Integer.parseInt(argString);
+        }
+        catch (NumberFormatException e) {
+            usage();
+        }
+
+        return 0;
+    }
+
+    public static void main(String args[]) {
+
+        final List<String> argsList = new ArrayList<>();
+
+        for (String arg : args) {
+            argsList.add(arg);
+        }
+
+        for (Iterator<String> iter = argsList.iterator(); iter.hasNext();) {
+
+            String arg = iter.next();
+
+            if ("-createSample".equalsIgnoreCase(arg)) {
+                iter.remove();
+                String fileName = getNextStringArgument(iter, true);
+                int sampleLineCount = getNextIntArgument(iter, true);
+                createFile(new File(fileName), sampleLineCount);
+            }
+        }
 
         SwingUtilities.invokeLater(new Runnable() {
 
@@ -917,10 +1052,10 @@ public class LogFileViewer extends JFrame {
             public void run() {
                 LogFileViewer mainFrame = new LogFileViewer();
 
-                if (args.length > 0) {
+                if (argsList.size() > 0) {
 
                     try {
-                        mainFrame.loadFile(new File(args[0]));
+                        mainFrame.loadFile(new File(argsList.get(0)));
                     } catch (Exception e) {
                         e.printStackTrace();
                     }

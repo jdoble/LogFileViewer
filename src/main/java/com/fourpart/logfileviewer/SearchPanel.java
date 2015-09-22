@@ -175,8 +175,7 @@ public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener 
 
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-                logFileViewer.handleCopyStart();
-                new CopySwingWorker(logFileViewer, searchResultViewer).execute();
+                logFileViewer.doCopySelectionToClipboard(searchResultViewer);
             }
         });
 

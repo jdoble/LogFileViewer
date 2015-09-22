@@ -1,19 +1,30 @@
 package com.fourpart.logfileviewer;
 
-import javax.swing.*;
+import javax.swing.BorderFactory;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JTable;
+import javax.swing.JViewport;
 import javax.swing.border.Border;
+import javax.swing.event.TableModelEvent;
 import javax.swing.table.DefaultTableColumnModel;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
-import java.awt.*;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.Rectangle;
 
 public class TextViewer extends JTable {
 
+    private boolean fixedColumnWidths = false;
+
     private int[] columnWidths;
 
-    public TextViewer(TextViewerModel textViewerModel) {
+    public TextViewer(TextViewerTableModel textViewerTableModel) {
 
-        super(textViewerModel);
+        super(textViewerTableModel);
 
         // We do not want to display a table grid
         setShowGrid(false);
@@ -71,30 +82,36 @@ public class TextViewer extends JTable {
         viewport.scrollRectToVisible(rect);
     }
 
-    public void calculateColumnWidths() {
+    @Override
+    public void tableChanged(TableModelEvent tableModelEvent) {
 
-        // Calculate the column widths necessary to accommodate the longest row in each column.
+        super.tableChanged(tableModelEvent);
 
-        TextViewerModel textViewerModel = getTextViewerModel();
+        if (tableModelEvent.getType() == TableModelEvent.INSERT && !fixedColumnWidths) {
 
-        if (textViewerModel != null && textViewerModel.getRowCount() > 0) {
+            // Calculate the column widths necessary to accommodate the longest row in each column.
 
-            columnWidths = new int[textViewerModel.getColumnCount()];
+            TextViewerTableModel textViewerTableModel = getTextViewerModel();
 
-            for (int column = 0; column < columnWidths.length; column++) {
+            if (textViewerTableModel != null && textViewerTableModel.getRowCount() > 0) {
 
-                int row = textViewerModel.getLongestRow(column);
+                columnWidths = new int[textViewerTableModel.getColumnCount()];
 
-                TableCellRenderer renderer = getCellRenderer(row, column);
-                Component component = renderer.getTableCellRendererComponent(this, getValueAt(row, column), false, false, row, column);
+                for (int column = 0; column < columnWidths.length; column++) {
 
-                int width = component.getPreferredSize().width + 2;
+                    int row = textViewerTableModel.getLongestRow(column);
 
-                columnWidths[column] = width;
+                    TableCellRenderer renderer = getCellRenderer(row, column);
+                    Component component = renderer.getTableCellRendererComponent(this, getValueAt(row, column), false, false, row, column);
+
+                    int width = component.getPreferredSize().width + 2;
+
+                    columnWidths[column] = width;
+                }
             }
-        }
 
-        applyColumnWidths();
+            applyColumnWidths();
+        }
     }
 
     public int[] getColumnWidths() {
@@ -102,15 +119,16 @@ public class TextViewer extends JTable {
     }
 
     public void setColumnWidths(int[] columnWidths) {
+        this.fixedColumnWidths = true;
         this.columnWidths = columnWidths;
         applyColumnWidths();
     }
 
     private void applyColumnWidths() {
 
-        TextViewerModel textViewerModel = getTextViewerModel();
+        TextViewerTableModel textViewerTableModel = getTextViewerModel();
 
-        for (int column = 0; column < textViewerModel.getColumnCount(); column++) {
+        for (int column = 0; column < textViewerTableModel.getColumnCount(); column++) {
 
             DefaultTableColumnModel colModel = (DefaultTableColumnModel) getColumnModel();
 
@@ -121,8 +139,8 @@ public class TextViewer extends JTable {
         }
     }
 
-    private TextViewerModel getTextViewerModel() {
-        return (TextViewerModel)getModel();
+    private TextViewerTableModel getTextViewerModel() {
+        return (TextViewerTableModel)getModel();
     }
 
     public class CustomRenderer implements TableCellRenderer {

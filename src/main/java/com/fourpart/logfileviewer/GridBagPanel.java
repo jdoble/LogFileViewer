@@ -1,7 +1,10 @@
 package com.fourpart.logfileviewer;
 
-import javax.swing.*;
-import java.awt.*;
+import javax.swing.JPanel;
+import java.awt.Component;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 
 @SuppressWarnings("serial")
 public class GridBagPanel extends JPanel {

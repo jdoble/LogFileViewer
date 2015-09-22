@@ -10,16 +10,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class CopySwingWorker extends SwingWorker<String, Void> {
 
-    private LogFileViewer logFileViewer;
+    private Client client;
 
     private TextViewer textViewer;
     private int[] selectedRows;
 
     private AtomicBoolean cancelled = new AtomicBoolean(false);
 
-    public CopySwingWorker(final LogFileViewer logFileViewer, TextViewer textViewer) {
+    public CopySwingWorker(final Client client, TextViewer textViewer) {
 
-        this.logFileViewer = logFileViewer;
+        this.client = client;
         this.textViewer = textViewer;
         this.selectedRows = textViewer.getSelectedRows();
 
@@ -30,14 +30,16 @@ public class CopySwingWorker extends SwingWorker<String, Void> {
 
                 if ("progress".equals(event.getPropertyName())) {
 
-                    logFileViewer.handleCopyProgress((Integer) event.getNewValue());
+                    client.handleCopyProgress((Integer) event.getNewValue());
 
-                    if (logFileViewer.getProgressMonitor().isCanceled()) {
+                    if (client.isCanceled()) {
                         cancelled.set(true);
                     }
                 }
             }
         });
+
+        client.handleCopyStart();
     }
 
     @Override
@@ -47,7 +49,7 @@ public class CopySwingWorker extends SwingWorker<String, Void> {
 
             StringBuilder sb = new StringBuilder();
 
-            for (int row = 0; row < selectedRows.length; row++) {
+            for (int i = 0; i < selectedRows.length; i++) {
 
                 if (cancelled.get()) {
                     return null;
@@ -57,9 +59,9 @@ public class CopySwingWorker extends SwingWorker<String, Void> {
                     sb.append('\n');
                 }
 
-                sb.append(textViewer.getValueAt(row, 1));
+                sb.append(textViewer.getValueAt(selectedRows[i], 1));
 
-                setProgress((row * 100) / selectedRows.length);
+                setProgress((i * 100) / selectedRows.length);
             }
 
             if (sb.length() > 0) {
@@ -78,10 +80,17 @@ public class CopySwingWorker extends SwingWorker<String, Void> {
     public void done() {
 
         try {
-            logFileViewer.handleCopyFinished(get());
+            client.handleCopyFinished(get());
         }
         catch (Exception e) {
-            logFileViewer.handleCopyFinished(e.toString());
+            client.handleCopyFinished(e.toString());
         }
+    }
+
+    public interface Client {
+        void handleCopyStart();
+        boolean isCanceled();
+        void handleCopyProgress(int progress);
+        void handleCopyFinished(String errorMessage);
     }
 }

@@ -1,13 +1,17 @@
 package com.fourpart.logfileviewer;
 
+import javax.swing.SwingWorker;
 import javax.swing.table.AbstractTableModel;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.io.File;
+import java.io.FileInputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
 
-public class FileViewerModel extends AbstractTableModel implements TextViewerModel {
+public class FileViewerModel extends AbstractTableModel implements TextViewerTableModel {
 
     private File file;
 
@@ -148,6 +152,109 @@ public class FileViewerModel extends AbstractTableModel implements TextViewerMod
 
             default:
                 return 0;
+        }
+    }
+
+    public interface Client {
+        void handleLoadFileStart(File file);
+        void handleLoadFileProgress(int progress);
+        void handleLoadFileFinished(File file, long startTime);
+    }
+
+    public void loadFile(File file, Client client) {
+        new LoadFileSwingWorker(file, client).execute();
+    }
+
+    private class LoadFileSwingWorker extends SwingWorker<Void, Long> {
+
+        private static final int BUF_SIZE = 16 * 1024;
+
+        private long startTime = System.currentTimeMillis();
+
+        private File file;
+
+        private Client client;
+
+        private FileChannel fileChannel;
+
+        private LoadFileSwingWorker(File file, final Client client) {
+
+            this.file = file;
+
+            this.client = client;
+
+            addPropertyChangeListener(new PropertyChangeListener() {
+
+                @Override
+                public void propertyChange(final PropertyChangeEvent event) {
+
+                    if ("progress".equals(event.getPropertyName())) {
+                        client.handleLoadFileProgress((Integer) event.getNewValue());
+                    }
+                }
+            });
+
+            client.handleLoadFileStart(file);
+        }
+
+        @Override
+        protected Void doInBackground() throws Exception {
+
+            FileInputStream in = new FileInputStream(file);
+
+            fileChannel = in.getChannel();
+
+            setFile(file);
+            setFileChannel(fileChannel);
+
+            ByteBuffer buf = ByteBuffer.allocate(BUF_SIZE);
+
+            long readPos = 0L; // Position in the file from which we should read next
+
+            long lastPos = -1L; // Position of the most recently published line
+
+            long fileSize = fileChannel.size();
+
+            while (fileChannel.read(buf, readPos) != -1) {
+
+                int bytesRead = buf.position();
+                buf.rewind();
+                byte[] byteArray = buf.array();
+
+                for (int i = 0; i < bytesRead; i++) {
+
+                    byte c = byteArray[i];
+
+                    if (c == '\n') {
+
+                        long pos = readPos + i;
+
+                        publish(pos);
+
+                        lastPos = pos;
+                    }
+                }
+
+                readPos += bytesRead;
+
+                setProgress((int) ((readPos * 100L) / fileSize));
+            }
+
+            if (readPos > lastPos + 1) {
+                publish(readPos);
+            }
+
+            return null;
+        }
+
+        @Override
+        public void process(List<Long> rows) {
+            addRows(rows);
+        }
+
+        @Override
+        public void done() {
+            client.handleLoadFileFinished(file, startTime);
         }
     }
 }

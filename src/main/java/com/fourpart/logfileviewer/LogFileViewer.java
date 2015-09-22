@@ -1,31 +1,48 @@
 package com.fourpart.logfileviewer;
 
-import javax.swing.*;
-
+import javax.swing.JButton;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
+import javax.swing.JProgressBar;
+import javax.swing.JScrollPane;
+import javax.swing.JSplitPane;
+import javax.swing.JTabbedPane;
+import javax.swing.ListSelectionModel;
+import javax.swing.ProgressMonitor;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
+import javax.swing.WindowConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-import java.awt.*;
-
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.GraphicsConfiguration;
+import java.awt.GridBagConstraints;
+import java.awt.Insets;
+import java.awt.Rectangle;
+import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.PrintWriter;
-import java.io.BufferedWriter;
-import java.io.FileWriter;
 
 public class LogFileViewer extends JFrame {
 
@@ -85,7 +102,13 @@ public class LogFileViewer extends JFrame {
 
         fileReloadButton = new JButton("Reload");
         fileReloadButton.setEnabled(false);
-        fileReloadButton.addActionListener(new FileReloadActionListener());
+        fileReloadButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                doReloadFile();
+            }
+        });
 
         GridBagPanel fileStatusPanel = new GridBagPanel();
         fileStatusPanel.addComponent(fileStatusLabel, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2));
@@ -153,6 +176,7 @@ public class LogFileViewer extends JFrame {
         // Split Pane
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
+
         splitPane.setTopComponent(filePanel);
         splitPane.setBottomComponent(searchTabbedPane);
         splitPane.setResizeWeight(0.5);
@@ -175,7 +199,13 @@ public class LogFileViewer extends JFrame {
 
         JMenuItem fileOpenItem = new JMenuItem("Open...");
 
-        fileOpenItem.addActionListener(new FileOpenActionListener());
+        fileOpenItem.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                doFileOpen();
+            }
+        });
 
         fileMenu.add(fileOpenItem);
 
@@ -186,7 +216,7 @@ public class LogFileViewer extends JFrame {
         fileExitItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent event) {
-                System.exit(0);
+                doExit();
             }
         });
 
@@ -208,8 +238,7 @@ public class LogFileViewer extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-                handleCopyStart();
-                new CopySwingWorker(LogFileViewer.this, fileViewer).execute();
+                doCopySelectionToClipboard(fileViewer);
             }
         });
 
@@ -222,10 +251,7 @@ public class LogFileViewer extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-                LogFileViewer.this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-                fileViewer.selectAll();
-                LogFileViewer.this.setCursor(Cursor.getDefaultCursor());
-
+                doSelectAll(fileViewer);
             }
         });
 
@@ -239,33 +265,7 @@ public class LogFileViewer extends JFrame {
         fileViewerGoToLineItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-
-                String lineNumberString = JOptionPane.showInputDialog(LogFileViewer.this, "Enter line number", "Go To Line", JOptionPane.PLAIN_MESSAGE);
-
-                if (lineNumberString == null) {
-                    return;
-                }
-
-                int lineNumber;
-
-                try {
-                    //int fileRow = fileViewerModel.getRowIndexForLongestValue();
-                    lineNumber = Integer.parseInt(lineNumberString);
-                }
-                catch (NumberFormatException e) {
-                    error("Invalid line number: " + lineNumberString);
-                    return;
-                }
-
-                if (lineNumber <= 0 || lineNumber > fileViewerModel.getRowCount()) {
-                    error("Line number is out of range: " + lineNumberString);
-                    return;
-                }
-
-                int rowIndex = lineNumber - 1;
-
-                fileViewer.getSelectionModel().setSelectionInterval(rowIndex, rowIndex);
-                fileViewer.scrollToCenter(rowIndex, 0);
+                doGoToLine();
             }
         });
 
@@ -291,126 +291,163 @@ public class LogFileViewer extends JFrame {
         }
     }
 
-    private class FileOpenActionListener implements ActionListener {
+    public void doSelectAll(TextViewer textViewer) {
+        LogFileViewer.this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        textViewer.selectAll();
+        LogFileViewer.this.setCursor(Cursor.getDefaultCursor());
+    }
 
-        @Override
-        public void actionPerformed(ActionEvent actionEvent) {
+    public void doCopySelectionToClipboard(TextViewer textViewer) {
 
-            int returnVal = fileChooser.showOpenDialog(LogFileViewer.this);
+        new CopySwingWorker(new CopySwingWorker.Client() {
 
-            if (returnVal == JFileChooser.APPROVE_OPTION) {
-
-                loadFile(fileChooser.getSelectedFile());
+            @Override
+            public void handleCopyStart() {
+                LogFileViewer.this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+                progressMonitor = new ProgressMonitor(LogFileViewer.this, "Copying selected lines...", "", 0, 100);
             }
+
+            @Override
+            public boolean isCanceled() {
+                return progressMonitor.isCanceled();
+            }
+
+            @Override
+            public void handleCopyProgress(int progress) {
+                progressMonitor.setProgress(progress);
+            }
+
+            @Override
+            public void handleCopyFinished(String errorMessage) {
+
+                progressMonitor.close();
+
+                LogFileViewer.this.setCursor(Cursor.getDefaultCursor());
+
+                if (errorMessage != null) {
+                    error(errorMessage);
+                }
+            }
+        }, textViewer).execute();
+    }
+
+    public void doGoToLine() {
+
+        String lineNumberString = JOptionPane.showInputDialog(LogFileViewer.this, "Enter line number", "Go To Line", JOptionPane.PLAIN_MESSAGE);
+
+        if (lineNumberString == null) {
+            return;
+        }
+
+        int lineNumber;
+
+        try {
+            lineNumber = Integer.parseInt(lineNumberString);
+        } catch (NumberFormatException e) {
+            error("Invalid line number: " + lineNumberString);
+            return;
+        }
+
+        if (lineNumber <= 0 || lineNumber > fileViewerModel.getRowCount()) {
+            error("Line number is out of range: " + lineNumberString);
+            return;
+        }
+
+        int rowIndex = lineNumber - 1;
+
+        fileViewer.getSelectionModel().setSelectionInterval(rowIndex, rowIndex);
+        fileViewer.scrollToCenter(rowIndex, 0);
+    }
+
+    public void doFileOpen() {
+        int returnVal = fileChooser.showOpenDialog(LogFileViewer.this);
+
+        if (returnVal == JFileChooser.APPROVE_OPTION) {
+
+            loadFile(fileChooser.getSelectedFile());
         }
     }
 
-    private class FileReloadActionListener implements ActionListener {
+    public void doExit() {
+        System.exit(0);
+    }
 
-        @Override
-        public void actionPerformed(ActionEvent actionEvent) {
-
-            loadFile(fileViewerModel.getFile());
-        }
+    public void doReloadFile() {
+        loadFile(fileViewerModel.getFile());
     }
 
     public void loadFile(final File file) {
 
-        handleLoadFileStart(file);
+        fileViewerModel.loadFile(file, new FileViewerModel.Client() {
 
-        new LoadFileSwingWorker(file).execute();
-    }
+            @Override
+            public void handleLoadFileStart(File file) {
 
-    private class LoadFileSwingWorker extends SwingWorker<Void, Long> {
+                fileStatusLabel.setText("Loading " + file.getAbsolutePath());
+                fileStatusLabel.setVisible(true);
 
-        private static final int BUF_SIZE = 16 * 1024;
+                fileLoadProgressBar.setVisible(true);
+                fileStatusFillerPanel.setVisible(false);
+                fileReloadButton.setEnabled(false);
 
-        private long startTime = System.currentTimeMillis();
+                fileViewerCopyItem.setEnabled(false);
+                fileViewerSelectAllItem.setEnabled(false);
+                fileViewerGoToLineItem.setEnabled(false);
 
-        private File file;
+                fileViewerModel.deleteAllRows();
 
-        private FileChannel fileChannel;
-
-        private LoadFileSwingWorker(File file) {
-
-            this.file = file;
-
-            addPropertyChangeListener(new PropertyChangeListener() {
-
-                @Override
-                public void propertyChange(final PropertyChangeEvent event) {
-
-                    if ("progress".equals(event.getPropertyName())) {
-                        handleLoadFileProgress((Integer) event.getNewValue());
-                    }
+                for (Listener listener : listenerList) {
+                    listener.handleLoadFileStart();
                 }
-            });
-        }
-
-        @Override
-        protected Void doInBackground() throws Exception {
-
-            FileInputStream in = new FileInputStream(file);
-
-            fileChannel = in.getChannel();
-
-            fileViewerModel.setFile(file);
-            fileViewerModel.setFileChannel(fileChannel);
-
-            ByteBuffer buf = ByteBuffer.allocate(BUF_SIZE);
-
-            long readPos = 0L; // Position in the file from which we should read next
-
-            long lastPos = -1L; // Position of the most recently published line
-
-            long fileSize = fileChannel.size();
-
-            while (fileChannel.read(buf, readPos) != -1) {
-
-                int bytesRead = buf.position();
-                buf.rewind();
-                byte[] byteArray = buf.array();
-
-                for (int i = 0; i < bytesRead; i++) {
-
-                    byte c = byteArray[i];
-
-                    if (c == '\n') {
-
-                        long pos = readPos + i;
-
-                        publish(pos);
-
-                        lastPos = pos;
-                    }
-                }
-
-                readPos += bytesRead;
-
-                setProgress((int) ((readPos * 100L) / fileSize));
             }
 
-            if (readPos > lastPos + 1) {
-                publish(readPos);
+            @Override
+            public void handleLoadFileProgress(int progress) {
+                fileLoadProgressBar.setValue(progress);
             }
 
-            return null;
-        }
+            @Override
+            public void handleLoadFileFinished(final File file, long startTime) {
 
-        @Override
-        public void process(List<Long> rows) {
-            fileViewerModel.addRows(rows);
-            fileViewer.calculateColumnWidths();
-        }
+                fileLoadProgressBar.setValue(100);
 
-        @Override
-        public void done() {
-            handleLoadFileFinished(file, startTime);
-        }
-    }
+                fileViewerSelectAllItem.setEnabled(true);
+                fileViewerGoToLineItem.setEnabled(true);
 
-    public ProgressMonitor getProgressMonitor() {
-        return progressMonitor;
+                for (Listener listener : listenerList) {
+                    listener.handleLoadFileFinished();
+                }
+
+                // Need to make the selected search panel's search button the default button.
+
+                getRootPane().setDefaultButton(searchPanels[searchTabbedPane.getSelectedIndex()].getSearchButton());
+
+                final long elapsedTime = System.currentTimeMillis() - startTime;
+
+                final int lineCount = fileViewerModel.getRowCount();
+
+                Timer delayTimer = new Timer(500, new ActionListener() {
+
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        fileLoadProgressBar.setVisible(false);
+                        fileStatusFillerPanel.setVisible(true);
+
+                        if (lineCount == 1) {
+                            fileStatusLabel.setText(file.getAbsolutePath() + " (1 line, " + elapsedTime + " ms)");
+                        } else {
+                            fileStatusLabel.setText(file.getAbsolutePath() + " (" + lineCount + " lines, " + elapsedTime + " ms, " + (fileViewerModel.getLongestRow() + 1) + ")" );
+                        }
+
+                        fileReloadButton.setEnabled(true);
+                    }
+                });
+
+                delayTimer.setRepeats(false);
+
+                delayTimer.start();
+            }
+        });
     }
 
     public void addListener(Listener listener) {
@@ -424,96 +461,9 @@ public class LogFileViewer extends JFrame {
         listenerList.remove(listener);
     }
 
-    private void handleLoadFileStart(File file) {
-
-        fileStatusLabel.setText("Loading " + file.getAbsolutePath());
-        fileStatusLabel.setVisible(true);
-
-        fileLoadProgressBar.setVisible(true);
-        fileStatusFillerPanel.setVisible(false);
-        fileReloadButton.setEnabled(false);
-
-        fileViewerCopyItem.setEnabled(false);
-        fileViewerSelectAllItem.setEnabled(false);
-        fileViewerGoToLineItem.setEnabled(false);
-
-        fileViewerModel.deleteAllRows();
-
-        for (Listener listener : listenerList) {
-            listener.handleLoadFileStart();
-        }
-    }
-
-    private void handleLoadFileProgress(int progress) {
-        fileLoadProgressBar.setValue(progress);
-    }
-
-    private void handleLoadFileFinished(final File file, long startTime) {
-
-        fileLoadProgressBar.setValue(100);
-
-        fileViewer.calculateColumnWidths();
-
-        fileViewerSelectAllItem.setEnabled(true);
-        fileViewerGoToLineItem.setEnabled(true);
-
-        for (Listener listener : listenerList) {
-            listener.handleLoadFileFinished();
-        }
-
-        // Need to make the selected search panel's search button the default button.
-
-        getRootPane().setDefaultButton(searchPanels[searchTabbedPane.getSelectedIndex()].getSearchButton());
-
-        final long elapsedTime = System.currentTimeMillis() - startTime;
-
-        final int lineCount = fileViewerModel.getRowCount();
-
-        Timer delayTimer = new Timer(500, new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                fileLoadProgressBar.setVisible(false);
-                fileStatusFillerPanel.setVisible(true);
-
-                if (lineCount == 1) {
-                    fileStatusLabel.setText(file.getAbsolutePath() + " (1 line, " + elapsedTime + " ms)");
-                } else {
-                    fileStatusLabel.setText(file.getAbsolutePath() + " (" + lineCount + " lines, " + elapsedTime + " ms, " + (fileViewerModel.getLongestRow() + 1) + ")" );
-                }
-
-                fileReloadButton.setEnabled(true);
-            }
-        });
-
-        delayTimer.setRepeats(false);
-
-        delayTimer.start();
-    }
-
     public void handleSelectionChanged(int selectedRow) {
         fileViewer.getSelectionModel().setSelectionInterval(selectedRow, selectedRow);
         fileViewer.scrollToCenter(selectedRow, 0);
-    }
-
-    public void handleCopyStart() {
-        LogFileViewer.this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-        progressMonitor = new ProgressMonitor(LogFileViewer.this, "Copying selected lines...", "", 0, 100);
-    }
-
-    public void handleCopyProgress(int progress) {
-        progressMonitor.setProgress(progress);
-    }
-
-    public void handleCopyFinished(String errorMessage) {
-
-        progressMonitor.close();
-
-        LogFileViewer.this.setCursor(Cursor.getDefaultCursor());
-
-        if (errorMessage != null) {
-            error(errorMessage);
-        }
     }
 
     public interface Listener {

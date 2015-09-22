@@ -4,20 +4,20 @@ import javax.swing.table.AbstractTableModel;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SearchResultViewerModel extends AbstractTableModel implements TextViewerModel {
+public class SearchResultViewerModel extends AbstractTableModel implements TextViewerTableModel {
 
     private int rowCount;
 
     private List<Integer> rowIndex;
 
-    private TextViewerModel parentModel;
+    private TextViewerTableModel parentModel;
 
     public SearchResultViewerModel() {
         rowIndex = new ArrayList<>();
         rowCount = 0;
     }
 
-    public void setParentModel(TextViewerModel parentModel) {
+    public void setParentModel(TextViewerTableModel parentModel) {
         this.parentModel = parentModel;
     }
 

@@ -13,15 +13,18 @@ public class FileViewerModel extends AbstractTableModel implements TextViewerMod
 
     private int rowCount;
 
-    private List<Long> rowIndex;
+    private List<Long> rowList;
 
     private FileChannel fileChannel;
 
-    private int rowIndexForLongestValue;
+    private int longestRowLength;
+    private int longestRow;
 
     public FileViewerModel() {
-        rowIndex = new ArrayList<>();
+        rowList = new ArrayList<>();
         rowCount = 0;
+        longestRowLength = -1;
+        longestRow = -1;
     }
 
     public void setFile(File file) {
@@ -38,11 +41,14 @@ public class FileViewerModel extends AbstractTableModel implements TextViewerMod
 
     public void deleteAllRows() {
 
-        rowIndex.clear();
+        rowList.clear();
 
         int maxRow = rowCount - 1;
 
         rowCount = 0;
+
+        longestRowLength = -1;
+        longestRow = -1;
 
         if (maxRow >= 0) {
             fireTableRowsDeleted(0, maxRow);
@@ -50,17 +56,30 @@ public class FileViewerModel extends AbstractTableModel implements TextViewerMod
     }
 
     public void addRows(List<Long> rows) {
-        rowIndex.addAll(rows);
-        rowCount = rowIndex.size();
+
+        long startPos = rowList.isEmpty() ? 0 : rowList.get(rowCount - 1) + 1;
+
+        for (Long row : rows) {
+
+            int length = (int)(row - startPos);
+
+            if (length > longestRowLength) {
+                longestRowLength = length;
+                longestRow = rowCount;
+            }
+
+            startPos = row + 1;
+
+            rowList.add(row);
+
+            rowCount++;
+        }
+
         fireTableRowsInserted(rowCount - rows.size(), rowCount - 1);
     }
 
-    public void setRowIndexForLongestValue(int rowIndexForLongestValue) {
-        this.rowIndexForLongestValue = rowIndexForLongestValue;
-    }
-
-    public int getRowIndexForLongestValue() {
-        return rowIndexForLongestValue;
+    public int getLongestRow() {
+        return longestRow;
     }
 
     @Override
@@ -74,80 +93,36 @@ public class FileViewerModel extends AbstractTableModel implements TextViewerMod
     }
 
     @Override
-    public String getColumnName(int columnIndex) {
+    public String getColumnName(int column) {
         return "";
     }
 
     @Override
-    public Object getValueAt(int rowIndex, int columnIndex) {
+    public Object getValueAt(int row, int column) {
 
-        switch (columnIndex) {
+        switch (column) {
 
             case 0:
-                return Integer.toString(rowIndex+1);
+                return Integer.toString(row+1);
 
             case 1:
 
                 try {
+                    long startPos = row == 0 ? 0L : this.rowList.get(row - 1) + 1;
+                    long endPos = this.rowList.get(row);
 
-                    if (rowIndex == rowCount - 1) {
+                    int length = (int)(endPos - startPos);
 
-                        // This is the last line in the file, but the file may have
-                        // grown since we last scanned it, so we read from the start
-                        // of the line to the first new line character, or the end
-                        // of the file, whichever comes first.
+                    ByteBuffer buf = ByteBuffer.allocate(length);
 
-                        StringBuilder sb = new StringBuilder();
+                    fileChannel.read(buf, startPos);
 
-                        Long pos = this.rowIndex.get(rowIndex);
+                    buf.rewind();
 
-                        ByteBuffer buf = ByteBuffer.allocate(8 * 1024);
-
-                        while (true) {
-
-                            long bytesRead = fileChannel.read(buf, pos);
-
-                            if (bytesRead < 0) {
-                                break;
-                            }
-
-                            buf.rewind();
-
-                            byte[] bytes = buf.array();
-
-                            for (int offset = 0; offset < bytesRead; offset++) {
-
-                                char c = (char) bytes[offset];
-
-                                if (c == '\n') {
-                                    return sb.toString();
-                                }
-
-                                sb.append(c);
-                            }
-
-                            pos += bytesRead;
-                        }
-
-                        return sb.toString();
-                    }
-                    else {
-
-                        Long pos = this.rowIndex.get(rowIndex);
-
-                        int length = (int)(this.rowIndex.get(rowIndex + 1) - pos - 1);
-
-                        ByteBuffer buf = ByteBuffer.allocate(length);
-
-                        fileChannel.read(buf, pos);
-
-                        buf.rewind();
-
-                        return new String(buf.array(), 0, length);
-                    }
+                    return new String(buf.array(), 0, length);
 
                 } catch (Exception e) {
-                    return "Error: "+ e.getMessage();
+                    return "Error: "+ e.toString();
                 }
 
             default:
@@ -166,10 +141,10 @@ public class FileViewerModel extends AbstractTableModel implements TextViewerMod
         switch (column) {
 
             case 0:
-                return rowIndex.size() - 1;
+                return rowList.size() - 1;
 
             case 1:
-                return rowIndexForLongestValue;
+                return longestRow;
 
             default:
                 return 0;

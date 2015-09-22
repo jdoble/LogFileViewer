@@ -115,8 +115,8 @@ public class LogFileViewer extends JFrame {
 
         GridBagPanel filePanel = new GridBagPanel();
 
-        filePanel.addComponent(fileStatusPanel, 0, 0, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.BOTH, new Insets(0, 0, 0, 0));
-        filePanel.addComponent(fileScrollPane, 1, 0, 1, 1, 1.0, 1.0, GridBagConstraints.NORTHWEST, GridBagConstraints.BOTH, new Insets(0, 0, 0, 0));
+        filePanel.addComponent(fileStatusPanel, 0, 0, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.BOTH, new Insets(0, 10, 0, 10));
+        filePanel.addComponent(fileScrollPane, 1, 0, 1, 1, 1.0, 1.0, GridBagConstraints.NORTHWEST, GridBagConstraints.BOTH, new Insets(0, 10, 0, 10));
 
         // Search Panels
 
@@ -323,13 +323,13 @@ public class LogFileViewer extends JFrame {
 
     private class LoadFileSwingWorker extends SwingWorker<Void, Long> {
 
+        private static final int BUF_SIZE = 16 * 1024;
+
         private long startTime = System.currentTimeMillis();
 
         private File file;
 
         private FileChannel fileChannel;
-
-        private int rowIndexForLongestValue;
 
         private LoadFileSwingWorker(File file) {
 
@@ -357,55 +357,41 @@ public class LogFileViewer extends JFrame {
             fileViewerModel.setFile(file);
             fileViewerModel.setFileChannel(fileChannel);
 
-            int lastRowIndex = 0;
+            ByteBuffer buf = ByteBuffer.allocate(BUF_SIZE);
 
-            publish(0L);
+            long readPos = 0L; // Position in the file from which we should read next
 
-            ByteBuffer buf = ByteBuffer.allocate(16 * 1024);
-
-            long offset = 0;
-
-            int longestLineLength = -1;
-
-            long lastIndex = 0L;
+            long lastPos = -1L; // Position of the most recently published line
 
             long fileSize = fileChannel.size();
 
-            while (fileChannel.read(buf, offset) != -1) {
+            while (fileChannel.read(buf, readPos) != -1) {
 
-                int len = buf.position();
+                int bytesRead = buf.position();
                 buf.rewind();
-                int pos = 0;
                 byte[] byteArray = buf.array();
 
-                while (pos < len) {
+                for (int i = 0; i < bytesRead; i++) {
 
-                    byte c = byteArray[pos++];
+                    byte c = byteArray[i];
 
                     if (c == '\n') {
 
-                        long nextIndex = offset + pos;
+                        long pos = readPos + i;
 
-                        if (nextIndex < fileSize) {
-                            publish(nextIndex);
-                        }
+                        publish(pos);
 
-                        int lineLength = (int) (nextIndex - lastIndex);
-
-                        if (lineLength > longestLineLength) {
-                            longestLineLength = lineLength;
-                            rowIndexForLongestValue = lastRowIndex;
-                        }
-
-                        lastRowIndex++;
-
-                        lastIndex = nextIndex;
+                        lastPos = pos;
                     }
                 }
 
-                offset += len;
+                readPos += bytesRead;
 
-                setProgress((int) ((offset * 100L) / fileSize));
+                setProgress((int) ((readPos * 100L) / fileSize));
+            }
+
+            if (readPos > lastPos + 1) {
+                publish(readPos);
             }
 
             return null;
@@ -414,7 +400,6 @@ public class LogFileViewer extends JFrame {
         @Override
         public void process(List<Long> rows) {
             fileViewerModel.addRows(rows);
-            fileViewerModel.setRowIndexForLongestValue(rowIndexForLongestValue);
             fileViewer.calculateColumnWidths();
         }
 
@@ -494,7 +479,7 @@ public class LogFileViewer extends JFrame {
                 if (lineCount == 1) {
                     fileStatusLabel.setText(file.getAbsolutePath() + " (1 line, " + elapsedTime + " ms)");
                 } else {
-                    fileStatusLabel.setText(file.getAbsolutePath() + " (" + lineCount + " lines, " + elapsedTime + " ms, " + (fileViewerModel.getRowIndexForLongestValue() + 1) + ")" );
+                    fileStatusLabel.setText(file.getAbsolutePath() + " (" + lineCount + " lines, " + elapsedTime + " ms, " + (fileViewerModel.getLongestRow() + 1) + ")" );
                 }
 
                 fileReloadButton.setEnabled(true);
@@ -552,6 +537,7 @@ public class LogFileViewer extends JFrame {
         phraseList.add("the rain in Spain falls mainly on the plane");
         phraseList.add("roses are red violets are blue sugar is sweet and so are you");
         phraseList.add("a bird in the hand is worth two in the bush");
+        phraseList.add("a stitch in time saves nine");
 
         java.util.Set<String> wordSet = new java.util.TreeSet<>();
 

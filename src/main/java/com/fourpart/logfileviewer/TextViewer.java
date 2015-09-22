@@ -30,6 +30,12 @@ public class TextViewer extends JTable {
         // This ensures that horizontal scroll bars will appear as needed
         setAutoResizeMode(AUTO_RESIZE_OFF);
 
+        // This disables automatic horizontal scrolling when a row is selected. Without this, the JTable
+        // will automatically scroll horizontally so that the beginning to the column of the table cell
+        // being clicked begins at the leftmost edge of the viewport, which doesn't make a lot of sense
+        // when we are using a JTable as a text file viewer.
+        setAutoscrolls(false);
+
         // We use a custom renderer, in order to add a border to the right-hand side of the line number cells
         setDefaultRenderer(Object.class, new CustomRenderer());
     }

@@ -155,6 +155,11 @@ public class FileViewerModel extends AbstractTableModel implements TextViewerTab
         }
     }
 
+    @Override
+    public String getRowMetaDataString(int row) {
+        return null;
+    }
+
     public interface Client {
         void handleLoadFileStart(File file);
         void handleLoadFileProgress(int progress);

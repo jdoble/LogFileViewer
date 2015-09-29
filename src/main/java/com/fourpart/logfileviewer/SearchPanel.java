@@ -35,14 +35,12 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.io.FileInputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
+import java.util.Iterator;
 import java.util.List;
 
 public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener {
 
-    private static final String FILTER_BOX_PROTOTYPE_TEXT = "wwwwwwwwwwwwwwww";
+    private static final String FILTER_BOX_PROTOTYPE_TEXT = "wwwwwwwwwwwwwwwwww";
 
     private LogFileViewer logFileViewer;
 
@@ -314,48 +312,21 @@ public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener 
         @Override
         protected Void doInBackground ()throws Exception {
 
-            FileInputStream in = new FileInputStream(loadedFileInfo.getFileViewerModel().getFile());
-            FileChannel fileChannel = in.getChannel();
-
-            ByteBuffer buf = ByteBuffer.allocate(16 * 1024);
-
-            StringBuilder sb = new StringBuilder();
-
             int nextIndex = 0;
 
-            long offset = 0L;
+            int totalLines = loadedFileInfo.getFileViewerModel().getRowCount();
 
-            while (fileChannel.read(buf, offset) != -1) {
+            for (Iterator<String> iter = loadedFileInfo.getFileViewerModel().lineIterator(); iter.hasNext();) {
 
-                int len = buf.position();
-                buf.rewind();
-                int pos = 0;
-                byte[] byteArray = buf.array();
+                String line = iter.next();
 
-                while (pos < len) {
-
-                    char c = (char)byteArray[pos++];
-
-                    if (c == '\n') {
-
-                        String line = sb.toString();
-
-                        if (filter.accept(line)) {
-                            publish(nextIndex);
-                        }
-
-                        sb.delete(0, sb.length());
-
-                        nextIndex++;
-                    }
-                    else {
-                        sb.append(c);
-                    }
+                if (filter.accept(line)) {
+                    publish(nextIndex);
                 }
 
-                offset += len;
+                nextIndex++;
 
-                setProgress((int) ((offset * 100L) / fileChannel.size()));
+                setProgress((nextIndex * 100) / totalLines);
             }
 
             return null;

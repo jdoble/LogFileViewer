@@ -42,6 +42,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
 public class LogFileViewer extends JFrame {
@@ -59,7 +60,7 @@ public class LogFileViewer extends JFrame {
     private JButton fileReloadButton;
 
     private TextViewer fileViewer;
-    private FileViewerModel fileViewerModel;
+    private MultiFileModel fileViewerModel;
 
     private JTabbedPane searchTabbedPane;
 
@@ -89,7 +90,7 @@ public class LogFileViewer extends JFrame {
 
         // Configure the File Viewer Panel
 
-        fileViewerModel = new FileViewerModel();
+        fileViewerModel = new MultiFileModel();
 
         fileStatusLabel = new JLabel();
         fileStatusLabel.setVisible(false);
@@ -152,7 +153,7 @@ public class LogFileViewer extends JFrame {
             searchPanels[i] = new SearchPanel(this, new LoadedFileInfo() {
 
                 @Override
-                public FileViewerModel getFileViewerModel() {
+                public MultiFileModel getFileViewerModel() {
                     return fileViewerModel;
                 }
 
@@ -208,6 +209,17 @@ public class LogFileViewer extends JFrame {
         });
 
         fileMenu.add(fileOpenItem);
+
+        JMenuItem fileOpenSeriesItem = new JMenuItem("Open Series...");
+
+        fileOpenSeriesItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                doFileOpenSeries();
+            }
+        });
+
+        fileMenu.add(fileOpenSeriesItem);
 
         fileMenu.addSeparator();
 
@@ -360,11 +372,33 @@ public class LogFileViewer extends JFrame {
     }
 
     public void doFileOpen() {
+
+        fileChooser.setMultiSelectionEnabled(false);
+
         int returnVal = fileChooser.showOpenDialog(LogFileViewer.this);
 
         if (returnVal == JFileChooser.APPROVE_OPTION) {
 
-            loadFile(fileChooser.getSelectedFile());
+            loadFiles(new File[] {fileChooser.getSelectedFile()});
+        }
+    }
+
+    public void doFileOpenSeries() {
+
+        fileChooser.setMultiSelectionEnabled(true);
+
+        int returnVal = fileChooser.showOpenDialog(LogFileViewer.this);
+
+        if (returnVal == JFileChooser.APPROVE_OPTION) {
+
+            File[] selectedFiles = fileChooser.getSelectedFiles();
+
+            if (selectedFiles.length == 0) {
+                error("No files were selected.");
+                return;
+            }
+
+            loadFiles(FileSeriesHelper.getFileSeries(selectedFiles));
         }
     }
 
@@ -373,31 +407,38 @@ public class LogFileViewer extends JFrame {
     }
 
     public void doReloadFile() {
-        loadFile(fileViewerModel.getFile());
+        loadFiles(null);
     }
 
-    public void loadFile(final File file) {
+    public void loadFiles(final File[] files) {
 
-        fileViewerModel.loadFile(file, new FileViewerModel.Client() {
+        fileViewerModel.loadFiles(files, new MultiFileModel.Client() {
+
+            private boolean firstFile = true;
 
             @Override
             public void handleLoadFileStart(File file) {
 
                 fileStatusLabel.setText("Loading " + file.getAbsolutePath());
-                fileStatusLabel.setVisible(true);
 
-                fileLoadProgressBar.setVisible(true);
-                fileStatusFillerPanel.setVisible(false);
-                fileReloadButton.setEnabled(false);
+                if (firstFile) {
 
-                fileViewerCopyItem.setEnabled(false);
-                fileViewerSelectAllItem.setEnabled(false);
-                fileViewerGoToLineItem.setEnabled(false);
+                    fileStatusLabel.setVisible(true);
+                    fileStatusLabel.setToolTipText(null);
 
-                fileViewerModel.deleteAllRows();
+                    fileLoadProgressBar.setVisible(true);
+                    fileStatusFillerPanel.setVisible(false);
+                    fileReloadButton.setEnabled(false);
 
-                for (Listener listener : listenerList) {
-                    listener.handleLoadFileStart();
+                    fileViewerCopyItem.setEnabled(false);
+                    fileViewerSelectAllItem.setEnabled(false);
+                    fileViewerGoToLineItem.setEnabled(false);
+
+                    for (Listener listener : listenerList) {
+                        listener.handleLoadFileStart();
+                    }
+
+                    firstFile = false;
                 }
             }
 
@@ -407,7 +448,7 @@ public class LogFileViewer extends JFrame {
             }
 
             @Override
-            public void handleLoadFileFinished(final File file, long startTime) {
+            public void handleLoadFilesFinished(final File[] files, long startTime) {
 
                 fileLoadProgressBar.setValue(100);
 
@@ -426,6 +467,10 @@ public class LogFileViewer extends JFrame {
 
                 final int lineCount = fileViewerModel.getRowCount();
 
+                final String fileSeriesName = FileSeriesHelper.getFileSeriesName(files);
+
+                final String toolTipText = FileSeriesHelper.getFileNamesString(files);
+
                 Timer delayTimer = new Timer(500, new ActionListener() {
 
                     @Override
@@ -434,10 +479,12 @@ public class LogFileViewer extends JFrame {
                         fileStatusFillerPanel.setVisible(true);
 
                         if (lineCount == 1) {
-                            fileStatusLabel.setText(file.getAbsolutePath() + " (1 line, " + elapsedTime + " ms)");
+                            fileStatusLabel.setText(fileSeriesName + " (1 line, " + elapsedTime + " ms)");
                         } else {
-                            fileStatusLabel.setText(file.getAbsolutePath() + " (" + lineCount + " lines, " + elapsedTime + " ms, " + (fileViewerModel.getLongestRow() + 1) + ")" );
+                            fileStatusLabel.setText(fileSeriesName + " (" + lineCount + " lines, " + elapsedTime + " ms, " + (fileViewerModel.getLongestRow() + 1) + ")" );
                         }
+
+                        fileStatusLabel.setToolTipText(toolTipText);
 
                         fileReloadButton.setEnabled(true);
                     }
@@ -472,7 +519,7 @@ public class LogFileViewer extends JFrame {
     }
 
     public interface LoadedFileInfo {
-        FileViewerModel getFileViewerModel();
+        MultiFileModel getFileViewerModel();
         int[] getColumnWidths();
     }
 
@@ -600,8 +647,14 @@ public class LogFileViewer extends JFrame {
 
                 if (argsList.size() > 0) {
 
+                    File[] filesToOpen = new File[argsList.size()];
+
+                    for (int i = 0; i < filesToOpen.length; i++) {
+                        filesToOpen[i] = new File(argsList.get(i));
+                    }
+
                     try {
-                        mainFrame.loadFile(new File(argsList.get(0)));
+                        mainFrame.loadFiles(filesToOpen);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }

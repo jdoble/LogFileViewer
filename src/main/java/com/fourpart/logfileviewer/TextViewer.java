@@ -156,7 +156,7 @@ public class TextViewer extends JTable {
             border = BorderFactory.createCompoundBorder();
             border = BorderFactory.createCompoundBorder(border, BorderFactory.createMatteBorder(0,0,0,4,Color.WHITE));
             border = BorderFactory.createCompoundBorder(border, BorderFactory.createMatteBorder(0,0,0,1,Color.LIGHT_GRAY));
-            border = BorderFactory.createCompoundBorder(border, BorderFactory.createMatteBorder(0,0,0,6,Color.WHITE));
+            border = BorderFactory.createCompoundBorder(border, BorderFactory.createMatteBorder(0, 0, 0, 6, Color.WHITE));
         }
 
         @Override
@@ -165,11 +165,18 @@ public class TextViewer extends JTable {
             JComponent result = (JComponent)renderer.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
 
             if (column == 0) {
+
                 result.setBorder(border);
+
                 ((JLabel)result).setHorizontalAlignment(JLabel.RIGHT);
+
+                String rowInfo = ((TextViewerTableModel)getModel()).getRowMetaDataString(row);
+
+                result.setToolTipText(rowInfo);
             }
             else {
                 ((JLabel)result).setHorizontalAlignment(JLabel.LEFT);
+                result.setToolTipText(null);
             }
 
             return result;

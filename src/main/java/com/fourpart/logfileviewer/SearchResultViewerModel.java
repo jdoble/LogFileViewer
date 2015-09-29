@@ -70,6 +70,11 @@ public class SearchResultViewerModel extends AbstractTableModel implements TextV
         return 0;
     }
 
+    @Override
+    public String getRowMetaDataString(int row) {
+        return parentModel.getRowMetaDataString(getFileRow(row));
+    }
+
     public int getFileRow(int row) {
         return rowIndex.get(row);
     }

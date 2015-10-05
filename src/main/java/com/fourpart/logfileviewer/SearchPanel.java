@@ -4,13 +4,13 @@ import com.fourpart.logfileviewer.filter.AcceptAllFilter;
 import com.fourpart.logfileviewer.filter.AndFilter;
 import com.fourpart.logfileviewer.filter.AndNotFilter;
 import com.fourpart.logfileviewer.filter.Filter;
+import com.fourpart.logfileviewer.filter.NamedFilterRegistry;
 import com.fourpart.logfileviewer.filter.OrFilter;
 import com.fourpart.logfileviewer.filter.RegExFilter;
 import com.fourpart.logfileviewer.filter.SimpleFilter;
 
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
@@ -52,19 +52,37 @@ public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener 
     private JMenuItem searchResultViewerCopyItem;
     private JMenuItem searchResultViewerSelectAllItem;
 
-    private JComboBox<String> filterBox1;
-    private DefaultComboBoxModel<String> filterBoxModel1;
+    private enum FilterType {
+        Simple, RegEx, Named
+    }
 
-    private JComboBox<String> filterBox2;
-    private DefaultComboBoxModel<String> filterBoxModel2;
+    private JComboBox<FilterType> filterTypeBox1;
+
+    private NamedFilterRegistry namedFilterRegistry;
+
+    private JComboBox<String> simpleFilterBox1;
+    private DefaultComboBoxModel<String> simpleFilterBoxModel1;
+
+    private JComboBox<String> regexFilterBox1;
+    private DefaultComboBoxModel<String> regexFilterBoxModel1;
+
+    private JComboBox<String> namedFilterBox1;
+
+    private JComboBox<FilterType> filterTypeBox2;
+
+    private JComboBox<String> simpleFilterBox2;
+    private DefaultComboBoxModel<String> simpleFilterBoxModel2;
+
+    private JComboBox<String> regexFilterBox2;
+    private DefaultComboBoxModel<String> regexFilterBoxModel2;
+
+    private JComboBox<String> namedFilterBox2;
 
     private enum FilterOperation {
-        AND, OR, AND_NOT
+        And, Or, And_Not
     }
 
     private JComboBox<FilterOperation> filterOperationBox;
-
-    private JCheckBox filterRegexBox;
 
     private JButton searchButton;
 
@@ -80,31 +98,83 @@ public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener 
 
         this.loadedFileInfo = loadedFileInfo;
 
-        filterBoxModel1 = new DefaultComboBoxModel<>();
-        filterBox1 = new JComboBox<>(filterBoxModel1);
-        filterBox1.setEditable(true);
-        filterBox1.setPrototypeDisplayValue(FILTER_BOX_PROTOTYPE_TEXT);
+        filterTypeBox1 = new JComboBox<>(FilterType.values());
+        filterTypeBox1.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                FilterType filterType = (FilterType) filterTypeBox1.getSelectedItem();
+                simpleFilterBox1.setVisible(filterType == FilterType.Simple);
+                regexFilterBox1.setVisible(filterType == FilterType.RegEx);
+                namedFilterBox1.setVisible(filterType == FilterType.Named);
+            }
+        });
+
+        namedFilterRegistry = logFileViewer.getNamedFilterRegistry();
+
+        simpleFilterBoxModel1 = new DefaultComboBoxModel<>();
+        simpleFilterBox1 = new JComboBox<>(simpleFilterBoxModel1);
+        simpleFilterBox1.setEditable(true);
+        simpleFilterBox1.setPrototypeDisplayValue(FILTER_BOX_PROTOTYPE_TEXT);
+        simpleFilterBox1.setVisible(true);
+
+        regexFilterBoxModel1 = new DefaultComboBoxModel<>();
+        regexFilterBox1 = new JComboBox<>(regexFilterBoxModel1);
+        regexFilterBox1.setEditable(true);
+        regexFilterBox1.setPrototypeDisplayValue(FILTER_BOX_PROTOTYPE_TEXT);
+        regexFilterBox1.setVisible(false);
+
+        namedFilterBox1 = new JComboBox<>(namedFilterRegistry.getComboBoxModel());
+        namedFilterBox1.setEditable(false);
+        namedFilterBox1.setPrototypeDisplayValue(FILTER_BOX_PROTOTYPE_TEXT);
+        namedFilterBox1.setVisible(false);
 
         filterOperationBox = new JComboBox<>(FilterOperation.values());
 
-        filterBoxModel2 = new DefaultComboBoxModel<>();
-        filterBox2 = new JComboBox<>(filterBoxModel2);
-        filterBox2.setEditable(true);
-        filterBox2.setPrototypeDisplayValue(FILTER_BOX_PROTOTYPE_TEXT);
+        filterTypeBox2 = new JComboBox<>(FilterType.values());
 
-        filterRegexBox = new JCheckBox("RegEx");
+        filterTypeBox2.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                FilterType filterType = (FilterType) filterTypeBox2.getSelectedItem();
+                simpleFilterBox2.setVisible(filterType == FilterType.Simple);
+                regexFilterBox2.setVisible(filterType == FilterType.RegEx);
+                namedFilterBox2.setVisible(filterType == FilterType.Named);
+            }
+        });
+
+        simpleFilterBoxModel2 = new DefaultComboBoxModel<>();
+        simpleFilterBox2 = new JComboBox<>(simpleFilterBoxModel2);
+        simpleFilterBox2.setEditable(true);
+        simpleFilterBox2.setPrototypeDisplayValue(FILTER_BOX_PROTOTYPE_TEXT);
+        simpleFilterBox1.setVisible(true);
+
+        regexFilterBoxModel2 = new DefaultComboBoxModel<>();
+        regexFilterBox2 = new JComboBox<>(regexFilterBoxModel2);
+        regexFilterBox2.setEditable(true);
+        regexFilterBox2.setPrototypeDisplayValue(FILTER_BOX_PROTOTYPE_TEXT);
+        regexFilterBox2.setVisible(false);
+
+        namedFilterBox2 = new JComboBox<>(namedFilterRegistry.getComboBoxModel());
+        namedFilterBox2.setEditable(false);
+        namedFilterBox2.setPrototypeDisplayValue(FILTER_BOX_PROTOTYPE_TEXT);
+        namedFilterBox2.setVisible(false);
 
         searchButton = new JButton("Search");
         searchButton.setEnabled(false);
         searchButton.addActionListener(new SearchButtonActionListener());
 
         GridBagPanel filterControlPanel = new GridBagPanel();
-        filterControlPanel.addComponent(filterBox1, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 2, 2, 0));
-        filterControlPanel.addComponent(filterOperationBox, 0, 1, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 2, 2, 0));
-        filterControlPanel.addComponent(filterBox2, 0, 2, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 2, 2, 0));
-        filterControlPanel.addComponent(new JPanel(), 0, 3, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0));
-        filterControlPanel.addComponent(filterRegexBox, 0, 4, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(3, 2, 2, 4));
-        filterControlPanel.addComponent(searchButton, 0, 5, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(3, 2, 2, 2));
+        filterControlPanel.addComponent(filterTypeBox1, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 2, 2, 0));
+        filterControlPanel.addComponent(simpleFilterBox1, 0, 1, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 2, 2, 0));
+        filterControlPanel.addComponent(regexFilterBox1, 0, 2, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 2, 2, 0));
+        filterControlPanel.addComponent(namedFilterBox1, 0, 3, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 2, 2, 0));
+        filterControlPanel.addComponent(filterOperationBox, 0, 4, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 16, 2, 16));
+        filterControlPanel.addComponent(filterTypeBox2, 0, 5, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 0, 2, 0));
+        filterControlPanel.addComponent(simpleFilterBox2, 0, 6, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 2, 2, 0));
+        filterControlPanel.addComponent(regexFilterBox2, 0, 7, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 2, 2, 0));
+        filterControlPanel.addComponent(namedFilterBox2, 0, 8, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(3, 2, 2, 0));
+        filterControlPanel.addComponent(new JPanel(), 0, 9, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0));
+        filterControlPanel.addComponent(searchButton, 0, 10, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(3, 2, 2, 2));
 
         searchResultViewerModel = new SearchResultViewerModel();
         searchResultViewer = new TextViewer(searchResultViewerModel);
@@ -229,46 +299,125 @@ public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener 
 
         private Filter buildFilter() {
 
-            String searchText1 = getComboBoxValue(filterBox1, filterBoxModel1);
-            String searchText2 = getComboBoxValue(filterBox2, filterBoxModel2);
+            Filter filter1 = buildFilter(1);
 
-            if (searchText1 == null) {
+            Filter filter2 = buildFilter(2);
 
-                if (searchText2 == null) {
-                    return new AcceptAllFilter();
-                }
-                else {
-                    return buildFilter(searchText2);
-                }
+            if (filter1 == null) {
+                return filter2 != null ? filter2 : new AcceptAllFilter();
             }
-            else {
 
-                if (searchText2 == null) {
-                    return buildFilter(searchText1);
-                }
-                else {
-                    switch((FilterOperation) filterOperationBox.getSelectedItem()) {
-                        case AND:
-                            return new AndFilter(buildFilter(searchText1), buildFilter(searchText2));
-                        case OR:
-                            return new OrFilter(buildFilter(searchText1), buildFilter(searchText2));
-                        case AND_NOT:
-                            return new AndNotFilter(buildFilter(searchText1), buildFilter(searchText2));
-                        default:
-                            return new AcceptAllFilter();
-                    }
-                }
+            if (filter2 == null) {
+                return filter1;
+            }
+
+            switch((FilterOperation) filterOperationBox.getSelectedItem()) {
+                case And:
+                    return new AndFilter(filter1, filter2);
+                case Or:
+                    return new OrFilter(filter1, filter2);
+                case And_Not:
+                    return new AndNotFilter(filter1, filter2);
+                default:
+                    return new AcceptAllFilter();
             }
         }
 
-        private Filter buildFilter(String matchText) {
+        private FilterType getFilterType(int filterNumber) {
 
-            if (filterRegexBox.isSelected()) {
-                return new RegExFilter(matchText);
+            switch (filterNumber) {
+                case 1:
+                    return (FilterType)filterTypeBox1.getSelectedItem();
+                case 2:
+                    return (FilterType)filterTypeBox2.getSelectedItem();
             }
-            else {
-                return new SimpleFilter(matchText);
+
+            return null;
+        }
+
+        private String getSimpleFilterValue(int filterNumber) {
+
+            switch (filterNumber) {
+                case 1:
+                    return getComboBoxValue(simpleFilterBox1, simpleFilterBoxModel1);
+                case 2:
+                    return getComboBoxValue(simpleFilterBox2, simpleFilterBoxModel2);
             }
+
+            return null;
+        }
+
+        private String getRexExFilterValue(int filterNumber) {
+
+            switch (filterNumber) {
+                case 1:
+                    return getComboBoxValue(regexFilterBox1, regexFilterBoxModel1);
+                case 2:
+                    return getComboBoxValue(regexFilterBox2, regexFilterBoxModel2);
+            }
+
+            return null;
+        }
+
+        private String getNamedFilterValue(int filterNumber) {
+
+            if (namedFilterRegistry.size() == 0) {
+                return null;
+            }
+
+            switch (filterNumber) {
+                case 1:
+                    return (String)namedFilterBox1.getSelectedItem();
+                case 2:
+                    return (String)namedFilterBox2.getSelectedItem();
+            }
+
+            return null;
+        }
+
+        private Filter buildFilter(int filterNumber) {
+
+            FilterType filterType = getFilterType(filterNumber);
+
+            if (filterType == null) {
+                return null;
+            }
+
+            switch (filterType) {
+
+                case Simple: {
+
+                    String s = getSimpleFilterValue(filterNumber);
+
+                    if (s != null) {
+                        return new SimpleFilter(s);
+                    }
+
+                    break;
+                }
+
+                case RegEx: {
+
+                    String s = getRexExFilterValue(filterNumber);
+
+                    if (s != null) {
+                        return new RegExFilter(s);
+                    }
+
+                    break;
+                }
+
+                case Named: {
+
+                    String s = getNamedFilterValue(filterNumber);
+
+                    if (s != null) {
+                        return namedFilterRegistry.getFilter(s).getFilter();
+                    }
+                }
+            }
+
+            return null;
         }
 
         private String getComboBoxValue(JComboBox<String> comboBox, DefaultComboBoxModel<String> comboBoxModel) {

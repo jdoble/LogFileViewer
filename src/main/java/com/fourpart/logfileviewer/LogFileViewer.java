@@ -1,5 +1,7 @@
 package com.fourpart.logfileviewer;
 
+import com.fourpart.logfileviewer.filter.NamedFilterRegistry;
+
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -18,6 +20,7 @@ import javax.swing.ListSelectionModel;
 import javax.swing.ProgressMonitor;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+import javax.swing.UIManager;
 import javax.swing.WindowConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -42,12 +45,13 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 
 public class LogFileViewer extends JFrame {
 
     private static final int MAX_SEARCH_TAB = 10;
+
+    private NamedFilterRegistry namedFilterRegistry;
 
     private JFileChooser fileChooser;
 
@@ -73,6 +77,8 @@ public class LogFileViewer extends JFrame {
     public LogFileViewer() {
 
         setTitle("Log File Viewer");
+
+        namedFilterRegistry = new NamedFilterRegistry();
 
         // Center the window on the main display, and use all available space
 
@@ -235,6 +241,22 @@ public class LogFileViewer extends JFrame {
         fileMenu.add(fileExitItem);
 
         menuBar.add(fileMenu);
+
+        JMenu toolsMenu = new JMenu("Tools");
+
+        JMenuItem toolsNamedFilterEditorItem = new JMenuItem("Named Filter Editor...");
+
+        toolsNamedFilterEditorItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                //new OldNamedFilterRegistryEditorDialog(LogFileViewer.this, namedFilterRegistry).setVisible(true);
+                new NamedFilterEditorDialog(LogFileViewer.this, namedFilterRegistry).setVisible(true);
+            }
+        });
+
+        toolsMenu.add(toolsNamedFilterEditorItem);
+
+        menuBar.add(toolsMenu);
 
         setJMenuBar(menuBar);
     }
@@ -523,6 +545,10 @@ public class LogFileViewer extends JFrame {
         int[] getColumnWidths();
     }
 
+    public NamedFilterRegistry getNamedFilterRegistry() {
+        return namedFilterRegistry;
+    }
+
     private void error(String message) {
         JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
     }
@@ -623,7 +649,11 @@ public class LogFileViewer extends JFrame {
         return 0;
     }
 
-    public static void main(String args[]) {
+    public static void main(String args[]) throws Exception {
+
+        System.err.println(System.getProperty("os.name"));
+        System.err.println(UIManager.getLookAndFeel());
+        UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
 
         final List<String> argsList = new ArrayList<>(Arrays.asList(args));
 

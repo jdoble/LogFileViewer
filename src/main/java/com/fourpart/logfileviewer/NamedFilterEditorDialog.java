@@ -12,29 +12,13 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import javax.swing.BorderFactory;
-import javax.swing.DefaultComboBoxModel;
-import javax.swing.DefaultListModel;
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JDialog;
-import javax.swing.JList;
-import javax.swing.JOptionPane;
-import javax.swing.JScrollPane;
-import javax.swing.JSplitPane;
-import javax.swing.JTextArea;
-import javax.swing.ListSelectionModel;
-import javax.swing.UIManager;
+import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.Frame;
-import java.awt.GridBagConstraints;
-import java.awt.Insets;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.ByteArrayInputStream;
@@ -185,7 +169,7 @@ public class NamedFilterEditorDialog extends JDialog {
     }
 
     private Dimension getInitialSize() {
-        return new Dimension(540, 470);
+        return new Dimension(700, 470);
     }
 
     private void updateFilterNames() {
@@ -366,8 +350,7 @@ public class NamedFilterEditorDialog extends JDialog {
             buildFilters();
         }
         catch (BuildException e) {
-            // TODO Create a custom dialog, in case there are many errors.
-            error(e.getMessage());
+            new TextAreaInfoDialog(this, "Filter Errors Found", e.getMessage()).setVisible(true);
             return false;
         }
 

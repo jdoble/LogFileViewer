@@ -6,6 +6,7 @@ import com.fourpart.logfileviewer.filter.NamedFilter;
 import com.fourpart.logfileviewer.filter.NamedFilterRegistry;
 import com.fourpart.logfileviewer.filter.NotFilter;
 import com.fourpart.logfileviewer.filter.OrFilter;
+import com.fourpart.logfileviewer.filter.RegExFilter;
 import com.fourpart.logfileviewer.filter.SimpleFilter;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -167,10 +168,10 @@ public class OldNamedFilterEditorDialog extends JDialog {
                 break;
             }
 
-            case Or_List: {
+            case Simple_Or_List: {
 
                 try {
-                    filter = buildOrListFilter();
+                    filter = buildSimpleOrListFilter();
                 }
                 catch (BuildException e) {
                     error(e.getMessage());
@@ -180,10 +181,36 @@ public class OldNamedFilterEditorDialog extends JDialog {
                 break;
             }
 
-            case And_List: {
+            case Simple_And_List: {
 
                 try {
-                    filter = buildAndListFilter();
+                    filter = buildSimpleAndListFilter();
+                }
+                catch (BuildException e) {
+                    error(e.getMessage());
+                    return;
+                }
+
+                break;
+            }
+
+            case RegEx_Or_List: {
+
+                try {
+                    filter = buildRegExOrListFilter();
+                }
+                catch (BuildException e) {
+                    error(e.getMessage());
+                    return;
+                }
+
+                break;
+            }
+
+            case RegEx_And_List: {
+
+                try {
+                    filter = buildRegExAndListFilter();
                 }
                 catch (BuildException e) {
                     error(e.getMessage());
@@ -345,7 +372,7 @@ public class OldNamedFilterEditorDialog extends JDialog {
         return new NotFilter(buildElement(childElems.get(0)));
     }
 
-    private Filter buildOrListFilter() throws BuildException {
+    private Filter buildSimpleOrListFilter() throws BuildException {
 
         String text = textBox.getText();
 
@@ -365,7 +392,7 @@ public class OldNamedFilterEditorDialog extends JDialog {
         return result;
     }
 
-    private Filter buildAndListFilter() throws BuildException {
+    private Filter buildSimpleAndListFilter() throws BuildException {
 
         String text = textBox.getText();
 
@@ -380,6 +407,46 @@ public class OldNamedFilterEditorDialog extends JDialog {
             }
 
             result.addFilter(new SimpleFilter(line));
+        }
+
+        return result;
+    }
+
+    private Filter buildRegExOrListFilter() throws BuildException {
+
+        String text = textBox.getText();
+
+        String[] lines = text.split("\n");
+
+        OrFilter result = new OrFilter();
+
+        for (String line : lines) {
+
+            if (line.length() == 0) {
+                continue;
+            }
+
+            result.addFilter(new RegExFilter(line));
+        }
+
+        return result;
+    }
+
+    private Filter buildRegExAndListFilter() throws BuildException {
+
+        String text = textBox.getText();
+
+        String[] lines = text.split("\n");
+
+        AndFilter result = new AndFilter();
+
+        for (String line : lines) {
+
+            if (line.length() == 0) {
+                continue;
+            }
+
+            result.addFilter(new RegExFilter(line));
         }
 
         return result;

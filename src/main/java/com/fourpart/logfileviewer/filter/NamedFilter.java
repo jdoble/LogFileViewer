@@ -5,7 +5,7 @@ public class NamedFilter {
     private String name;
 
     public enum Type {
-        Or_List, And_List, XML
+        Simple_Or_List, Simple_And_List, RegEx_Or_List, RegEx_And_List, XML
     }
 
     private Type type;

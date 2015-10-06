@@ -6,6 +6,7 @@ import com.fourpart.logfileviewer.filter.NamedFilter;
 import com.fourpart.logfileviewer.filter.NamedFilterRegistry;
 import com.fourpart.logfileviewer.filter.NotFilter;
 import com.fourpart.logfileviewer.filter.OrFilter;
+import com.fourpart.logfileviewer.filter.RegExFilter;
 import com.fourpart.logfileviewer.filter.SimpleFilter;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -213,7 +214,7 @@ public class NamedFilterEditorDialog extends JDialog {
             break;
         }
 
-        filterMap.put(name, new NamedFilter(name, NamedFilter.Type.Or_List, "", null));
+        filterMap.put(name, new NamedFilter(name, NamedFilter.Type.Simple_Or_List, "", null));
 
         updateFilterNames();
 
@@ -422,12 +423,20 @@ public class NamedFilterEditorDialog extends JDialog {
                     namedFilter.setFilter(buildXmlFilter(namedFilter.getFilterText()));
                     break;
 
-                case Or_List:
-                    namedFilter.setFilter(buildOrListFilter(namedFilter.getFilterText()));
+                case Simple_Or_List:
+                    namedFilter.setFilter(buildSimpleOrListFilter(namedFilter.getFilterText()));
                     break;
 
-                case And_List:
-                    namedFilter.setFilter(buildAndListFilter(namedFilter.getFilterText()));
+                case Simple_And_List:
+                    namedFilter.setFilter(buildSimpleAndListFilter(namedFilter.getFilterText()));
+                    break;
+
+                case RegEx_Or_List:
+                    namedFilter.setFilter(buildRegExOrListFilter(namedFilter.getFilterText()));
+                    break;
+
+                case RegEx_And_List:
+                    namedFilter.setFilter(buildRegExAndListFilter(namedFilter.getFilterText()));
                     break;
 
                 default:
@@ -485,12 +494,20 @@ public class NamedFilterEditorDialog extends JDialog {
                         namedFilter.setFilter(buildXmlFilter(namedFilter.getFilterText()));
                         break;
 
-                    case Or_List:
-                        namedFilter.setFilter(buildOrListFilter(namedFilter.getFilterText()));
+                    case Simple_Or_List:
+                        namedFilter.setFilter(buildSimpleOrListFilter(namedFilter.getFilterText()));
                         break;
 
-                    case And_List:
-                        namedFilter.setFilter(buildAndListFilter(namedFilter.getFilterText()));
+                    case Simple_And_List:
+                        namedFilter.setFilter(buildSimpleAndListFilter(namedFilter.getFilterText()));
+                        break;
+
+                    case RegEx_Or_List:
+                        namedFilter.setFilter(buildRegExOrListFilter(namedFilter.getFilterText()));
+                        break;
+
+                    case RegEx_And_List:
+                        namedFilter.setFilter(buildRegExAndListFilter(namedFilter.getFilterText()));
                         break;
 
                     default:
@@ -657,7 +674,7 @@ public class NamedFilterEditorDialog extends JDialog {
         return new NotFilter(buildElement(childElems.get(0)));
     }
 
-    private Filter buildOrListFilter(String filterText) throws BuildException {
+    private Filter buildSimpleOrListFilter(String filterText) throws BuildException {
 
         String[] lines = filterText.split("\n");
 
@@ -675,7 +692,7 @@ public class NamedFilterEditorDialog extends JDialog {
         return result;
     }
 
-    private Filter buildAndListFilter(String filterText) throws BuildException {
+    private Filter buildSimpleAndListFilter(String filterText) throws BuildException {
 
         String[] lines = filterText.split("\n");
 
@@ -688,6 +705,42 @@ public class NamedFilterEditorDialog extends JDialog {
             }
 
             result.addFilter(new SimpleFilter(line));
+        }
+
+        return result;
+    }
+
+    private Filter buildRegExOrListFilter(String filterText) throws BuildException {
+
+        String[] lines = filterText.split("\n");
+
+        OrFilter result = new OrFilter();
+
+        for (String line : lines) {
+
+            if (line.length() == 0) {
+                continue;
+            }
+
+            result.addFilter(new RegExFilter(line));
+        }
+
+        return result;
+    }
+
+    private Filter buildRegExAndListFilter(String filterText) throws BuildException {
+
+        String[] lines = filterText.split("\n");
+
+        AndFilter result = new AndFilter();
+
+        for (String line : lines) {
+
+            if (line.length() == 0) {
+                continue;
+            }
+
+            result.addFilter(new RegExFilter(line));
         }
 
         return result;

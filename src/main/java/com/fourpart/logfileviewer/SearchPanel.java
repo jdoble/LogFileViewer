@@ -128,6 +128,15 @@ public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener 
         namedFilterBox1.setPrototypeDisplayValue(FILTER_BOX_PROTOTYPE_TEXT);
         namedFilterBox1.setVisible(false);
 
+        namedFilterBox1.addMouseListener(new MouseAdapter() {
+            public void mouseClicked(MouseEvent evt) {
+
+                if (evt.getClickCount() == 2) {
+                    openNamedFilterEditor((String) namedFilterBox1.getSelectedItem());
+                }
+            }
+        });
+
         filterOperationBox = new JComboBox<>(FilterOperation.values());
 
         filterTypeBox2 = new JComboBox<>(FilterType.values());
@@ -158,6 +167,14 @@ public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener 
         namedFilterBox2.setEditable(false);
         namedFilterBox2.setPrototypeDisplayValue(FILTER_BOX_PROTOTYPE_TEXT);
         namedFilterBox2.setVisible(false);
+        namedFilterBox2.addMouseListener(new MouseAdapter() {
+            public void mouseClicked(MouseEvent evt) {
+
+                if (evt.getClickCount() == 2) {
+                    openNamedFilterEditor((String) namedFilterBox1.getSelectedItem());
+                }
+            }
+        });
 
         searchButton = new JButton("Search");
         searchButton.setEnabled(false);
@@ -283,6 +300,10 @@ public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener 
                 }
             });
         }
+    }
+
+    private void openNamedFilterEditor(String filterName) {
+        new NamedFilterEditorDialog(logFileViewer, namedFilterRegistry, filterName).setVisible(true);
     }
 
     private class SearchButtonActionListener implements ActionListener {

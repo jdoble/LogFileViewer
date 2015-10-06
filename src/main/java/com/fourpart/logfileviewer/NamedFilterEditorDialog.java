@@ -43,15 +43,23 @@ public class NamedFilterEditorDialog extends JDialog {
 
     private JButton removeButton;
 
-    private JComboBox<NamedFilter.Type> typeBox;
+    private JLabel nameLabel;
 
-    private JButton validateButton;
+    private JTextField nameBox;
+
+    private JLabel typeLabel;
+
+    private JComboBox<NamedFilter.Type> typeBox;
 
     private JTextArea textBox;
 
     private String selectedName;
 
     public NamedFilterEditorDialog(Frame owner, NamedFilterRegistry namedFilterRegistry) {
+        this(owner, namedFilterRegistry, null);
+    }
+
+    public NamedFilterEditorDialog(Frame owner, NamedFilterRegistry namedFilterRegistry, String selectedName) {
 
         super(owner, true);
 
@@ -109,27 +117,28 @@ public class NamedFilterEditorDialog extends JDialog {
         navPanel.addComponent(new JScrollPane(filterList), 0, 0, 1, 1, 1.0, 1.0, GridBagConstraints.WEST, GridBagConstraints.BOTH, new Insets(0, 0, 6, 0));
         navPanel.addComponent(navButtonPanel, 1, 0, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0));
 
+        nameLabel = new JLabel("Name:");
+        nameLabel.setVisible(false);
+
+        nameBox = new JTextField();
+        nameBox.setVisible(false);
+
+        typeLabel = new JLabel("Type:");
+        typeLabel.setVisible(false);
+
         typeBox = new JComboBox<>(new DefaultComboBoxModel<>(NamedFilter.Type.values()));
         typeBox.setVisible(false);
-
-        validateButton = new JButton("Validate");
-        validateButton.setVisible(false);
-
-        validateButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                handleValidate();
-            }
-        });
 
         textBox = new JTextArea();
         textBox.setVisible(false);
 
         GridBagPanel editorPanel = new GridBagPanel();
         editorPanel.setBorder(null);
-        editorPanel.addComponent(typeBox, 0, 0, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 6, 0));
-        editorPanel.addComponent(validateButton, 0, 1, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0, 6, 6, 0));
-        editorPanel.addComponent(new JScrollPane(textBox), 1, 0, 2, 1, 1.0, 1.0, GridBagConstraints.WEST, GridBagConstraints.BOTH, new Insets(0, 0, 0, 0));
+        editorPanel.addComponent(nameLabel, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(0, 0, 0, 0));
+        editorPanel.addComponent(nameBox, 0, 1, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0, 6, 0, 0));
+        editorPanel.addComponent(typeLabel, 1, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(6, 0, 0, 0));
+        editorPanel.addComponent(typeBox, 1, 1, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(6, 6, 0, 0));
+        editorPanel.addComponent(new JScrollPane(textBox), 2, 0, 2, 1, 1.0, 1.0, GridBagConstraints.WEST, GridBagConstraints.BOTH, new Insets(6, 0, 0, 0));
 
         UIManager.put("SplitPaneDivider.border", BorderFactory.createEmptyBorder());
 
@@ -148,17 +157,17 @@ public class NamedFilterEditorDialog extends JDialog {
             }
         });
 
-        JButton saveButton = new JButton("Save");
+        JButton applyButton = new JButton("Apply");
 
-        saveButton.addActionListener(new ActionListener() {
+        applyButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                handleSave();
+                handleApply();
             }
         });
 
         GridBagPanel mainButtonPanel = new GridBagPanel();
-        mainButtonPanel.addComponent(saveButton, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(0, 0, 0, 0));
+        mainButtonPanel.addComponent(applyButton, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(0, 0, 0, 0));
         mainButtonPanel.addComponent(doneButton, 0, 1, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(0, 6, 0, 0));
 
         mainPanel.addComponent(splitPane, 0, 0, 1, 1, 1.0, 1.0, GridBagConstraints.WEST, GridBagConstraints.BOTH, new Insets(0, 0, 0, 0));
@@ -166,6 +175,7 @@ public class NamedFilterEditorDialog extends JDialog {
 
         getContentPane().add(BorderLayout.CENTER, mainPanel);
 
+        filterList.setSelectedValue(selectedName, true);
     }
 
     private Dimension getInitialSize() {
@@ -193,20 +203,10 @@ public class NamedFilterEditorDialog extends JDialog {
                 return;
             }
 
-            name = name.trim();
+            List<String> errorMessages = new ArrayList<>();
 
-            if (name.length() == 0) {
-                error("Filter name must be specified.");
-                continue;
-            }
-
-            if (!NAME_PATTERN.matcher(name).matches()) {
-                error("Invalid filter name: " + name);
-                continue;
-            }
-
-            if (filterMap.get(name) != null) {
-                error("There is already a filter with name: " + name);
+            if (!validateName(name, errorMessages)) {
+                error(errorMessages);
                 continue;
             }
 
@@ -218,6 +218,28 @@ public class NamedFilterEditorDialog extends JDialog {
         updateFilterNames();
 
         filterList.setSelectedValue(name, true);
+    }
+
+    private boolean validateName(String name, List<String> errorMessages) {
+
+        name = name.trim();
+
+        if (name.length() == 0) {
+            errorMessages.add("Filter name must be specified.");
+            return false;
+        }
+
+        if (!NAME_PATTERN.matcher(name).matches()) {
+            errorMessages.add("Invalid filter name: " + name);
+            return false;
+        }
+
+        if (filterMap.get(name) != null) {
+            errorMessages.add("There is already a filter with name: " + name);
+            return false;
+        }
+
+        return true;
     }
 
     private void handleRemove() {
@@ -258,16 +280,21 @@ public class NamedFilterEditorDialog extends JDialog {
         selectedName = name;
 
         if (name == null) {
+            nameLabel.setVisible(false);
+            nameBox.setVisible(false);
+            typeLabel.setVisible(false);
             typeBox.setVisible(false);
             textBox.setVisible(false);
-            validateButton.setVisible(false);
         }
         else {
             NamedFilter namedFilter = filterMap.get(selectedName);
+            nameBox.setText(selectedName);
             typeBox.setSelectedItem(namedFilter.getType());
             textBox.setText(namedFilter.getFilterText());
+            nameLabel.setVisible(true);
+            nameBox.setVisible(true);
+            typeLabel.setVisible(true);
             typeBox.setVisible(true);
-            validateButton.setVisible(true);
             textBox.setVisible(true);
         }
     }
@@ -279,6 +306,27 @@ public class NamedFilterEditorDialog extends JDialog {
             NamedFilter namedFilter = filterMap.get(selectedName);
 
             if (namedFilter != null) {
+
+                String name = nameBox.getText().trim();
+
+                if (!name.equals(selectedName)) {
+
+                    List<String> errorMessages = new ArrayList<>();
+
+                    if (!validateName(name, errorMessages)) {
+                        errorMessages.add("Name will revert to: " + selectedName);
+                        error(errorMessages);
+                        nameBox.setText(selectedName);
+                    }
+                    else {
+                        namedFilter.setName(name);
+                        filterMap.remove(selectedName);
+                        filterMap.put(name, namedFilter);
+                        filterListModel.set(filterListModel.indexOf(selectedName), name);
+                        selectedName = name;
+                    }
+                }
+
                 namedFilter.setType((NamedFilter.Type) typeBox.getSelectedItem());
                 namedFilter.setFilterText(textBox.getText());
             }
@@ -297,7 +345,7 @@ public class NamedFilterEditorDialog extends JDialog {
 
                 case JOptionPane.YES_OPTION:
 
-                    if (handleSave()) {
+                    if (handleApply()) {
                         setVisible(false);
                     }
 
@@ -342,7 +390,7 @@ public class NamedFilterEditorDialog extends JDialog {
         return false;
     }
 
-    private boolean handleSave() {
+    private boolean handleApply() {
 
         updateSelectedFilter();
 
@@ -395,6 +443,22 @@ public class NamedFilterEditorDialog extends JDialog {
 
     private void error(String message) {
         JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private void error(List<String> messages) {
+
+        StringBuilder sb = new StringBuilder();
+
+        for (String message : messages) {
+
+            if (sb.length() > 0) {
+                sb.append('\n');
+            }
+
+            sb.append(message);
+        }
+
+        JOptionPane.showMessageDialog(this, sb.toString(), "Error", JOptionPane.ERROR_MESSAGE);
     }
 
     private void info(String message) {

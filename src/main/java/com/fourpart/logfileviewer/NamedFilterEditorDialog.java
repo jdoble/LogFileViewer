@@ -213,7 +213,7 @@ public class NamedFilterEditorDialog extends JDialog {
             break;
         }
 
-        filterMap.put(name, new NamedFilter(name, NamedFilter.Type.List, "", null));
+        filterMap.put(name, new NamedFilter(name, NamedFilter.Type.Or_List, "", null));
 
         updateFilterNames();
 
@@ -422,8 +422,12 @@ public class NamedFilterEditorDialog extends JDialog {
                     namedFilter.setFilter(buildXmlFilter(namedFilter.getFilterText()));
                     break;
 
-                case List:
-                    namedFilter.setFilter(buildListFilter(namedFilter.getFilterText()));
+                case Or_List:
+                    namedFilter.setFilter(buildOrListFilter(namedFilter.getFilterText()));
+                    break;
+
+                case And_List:
+                    namedFilter.setFilter(buildAndListFilter(namedFilter.getFilterText()));
                     break;
 
                 default:
@@ -481,8 +485,12 @@ public class NamedFilterEditorDialog extends JDialog {
                         namedFilter.setFilter(buildXmlFilter(namedFilter.getFilterText()));
                         break;
 
-                    case List:
-                        namedFilter.setFilter(buildListFilter(namedFilter.getFilterText()));
+                    case Or_List:
+                        namedFilter.setFilter(buildOrListFilter(namedFilter.getFilterText()));
+                        break;
+
+                    case And_List:
+                        namedFilter.setFilter(buildAndListFilter(namedFilter.getFilterText()));
                         break;
 
                     default:
@@ -649,11 +657,29 @@ public class NamedFilterEditorDialog extends JDialog {
         return new NotFilter(buildElement(childElems.get(0)));
     }
 
-    private Filter buildListFilter(String filterText) throws BuildException {
+    private Filter buildOrListFilter(String filterText) throws BuildException {
 
         String[] lines = filterText.split("\n");
 
         OrFilter result = new OrFilter();
+
+        for (String line : lines) {
+
+            if (line.length() == 0) {
+                continue;
+            }
+
+            result.addFilter(new SimpleFilter(line));
+        }
+
+        return result;
+    }
+
+    private Filter buildAndListFilter(String filterText) throws BuildException {
+
+        String[] lines = filterText.split("\n");
+
+        AndFilter result = new AndFilter();
 
         for (String line : lines) {
 

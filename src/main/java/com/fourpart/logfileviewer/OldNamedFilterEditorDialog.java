@@ -167,10 +167,23 @@ public class OldNamedFilterEditorDialog extends JDialog {
                 break;
             }
 
-            case List: {
+            case Or_List: {
 
                 try {
-                    filter = buildListFilter();
+                    filter = buildOrListFilter();
+                }
+                catch (BuildException e) {
+                    error(e.getMessage());
+                    return;
+                }
+
+                break;
+            }
+
+            case And_List: {
+
+                try {
+                    filter = buildAndListFilter();
                 }
                 catch (BuildException e) {
                     error(e.getMessage());
@@ -332,13 +345,33 @@ public class OldNamedFilterEditorDialog extends JDialog {
         return new NotFilter(buildElement(childElems.get(0)));
     }
 
-    private Filter buildListFilter() throws BuildException {
+    private Filter buildOrListFilter() throws BuildException {
 
         String text = textBox.getText();
 
         String[] lines = text.split("\n");
 
         OrFilter result = new OrFilter();
+
+        for (String line : lines) {
+
+            if (line.length() == 0) {
+                continue;
+            }
+
+            result.addFilter(new SimpleFilter(line));
+        }
+
+        return result;
+    }
+
+    private Filter buildAndListFilter() throws BuildException {
+
+        String text = textBox.getText();
+
+        String[] lines = text.split("\n");
+
+        AndFilter result = new AndFilter();
 
         for (String line : lines) {
 

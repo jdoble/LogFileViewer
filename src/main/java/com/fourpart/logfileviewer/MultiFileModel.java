@@ -7,12 +7,14 @@ import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MultiFileModel extends AbstractTableModel implements TextViewerTableModel {
 
@@ -26,6 +28,10 @@ public class MultiFileModel extends AbstractTableModel implements TextViewerTabl
     private int longestRow;
 
     private long lineStartPos;
+
+    private LoadFilesSwingWorker loadFilesSwingWorker = null;
+
+    private boolean closePending = false;
 
     public MultiFileModel() {
         clear();
@@ -276,6 +282,19 @@ public class MultiFileModel extends AbstractTableModel implements TextViewerTabl
 
             return null;
         }
+
+        private long size() throws IOException {
+            return fileChannel.size();
+        }
+
+        private void close() {
+            try {
+                fileChannel.close();
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     public interface Client {
@@ -284,8 +303,34 @@ public class MultiFileModel extends AbstractTableModel implements TextViewerTabl
         void handleLoadFilesFinished(File[] files, long startTime);
     }
 
-    public void loadFiles(File[] files, Client client) {
-        new LoadFilesSwingWorker(files, client).execute();
+    public void loadFiles(File[] files, Client client) throws FileNotFoundException {
+
+        loadFilesSwingWorker = new LoadFilesSwingWorker(files, client);
+        loadFilesSwingWorker.execute();
+    }
+
+    public void close() {
+
+        if (loadFilesSwingWorker != null) {
+            closePending = true;
+            loadFilesSwingWorker.cancel();
+        }
+        else {
+            closeFiles();
+        }
+    }
+
+    private void closeFiles() {
+
+        for (FileWrapper fileWrapper : fileWrappers) {
+
+            try {
+                fileWrapper.close();
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     private class LoadFilesSwingWorker extends SwingWorker<Void, IndexAndPos> {
@@ -294,11 +339,14 @@ public class MultiFileModel extends AbstractTableModel implements TextViewerTabl
 
         private Client client;
 
-        private LoadFilesSwingWorker(File[] files, final Client client) {
+        private AtomicBoolean cancelled = new AtomicBoolean(false);
+
+        private LoadFilesSwingWorker(File[] files, final Client client) throws FileNotFoundException {
 
             if (files == null) {
 
                 for (int i = 0; i < fileWrappers.length; i++) {
+                    fileWrappers[i].close();
                     fileWrappers[i] = new FileWrapper(fileWrappers[i].getFile());
                 }
             }
@@ -308,6 +356,7 @@ public class MultiFileModel extends AbstractTableModel implements TextViewerTabl
 
                 for (int i = 0; i < fileWrappers.length; i++) {
                     fileWrappers[i] = new FileWrapper(files[i]);
+                    fileWrappers[i].openFileChannel();
                 }
             }
 
@@ -332,14 +381,17 @@ public class MultiFileModel extends AbstractTableModel implements TextViewerTabl
             client.handleLoadFileStart(fileWrappers[0].getFile());
         }
 
+        private void cancel() {
+            cancelled.set(true);
+        }
+
         @Override
         protected Void doInBackground() throws Exception {
 
             long totalSize = 0L;
 
             for (FileWrapper fileWrapper : fileWrappers) {
-                FileChannel fileChannel = fileWrapper.openFileChannel();
-                totalSize += fileChannel.size();
+                totalSize += fileWrapper.size();
             }
 
             ByteBuffer buf = ByteBuffer.allocate(BUF_SIZE);
@@ -359,6 +411,10 @@ public class MultiFileModel extends AbstractTableModel implements TextViewerTabl
                 long lastPos = -1L; // Position of the most recently published line
 
                 while (fileChannel.read(buf, readPos) != -1) {
+
+                    if (cancelled.get()) {
+                        return null;
+                    }
 
                     int bytesRead = buf.position();
                     buf.rewind();
@@ -405,6 +461,11 @@ public class MultiFileModel extends AbstractTableModel implements TextViewerTabl
 
             for (int i = 0; i < files.length; i++) {
                 files[i] = fileWrappers[i].getFile();
+            }
+
+            if (closePending) {
+                closeFiles();
+                closePending = false;
             }
 
             client.handleLoadFilesFinished(files, startTime);

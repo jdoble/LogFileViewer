@@ -2,33 +2,29 @@ package com.fourpart.logfileviewer;
 
 import com.fourpart.logfileviewer.filter.NamedFilterRegistry;
 
-import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
-import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
-import javax.swing.JTabbedPane;
-import javax.swing.ListSelectionModel;
-import javax.swing.ProgressMonitor;
+import javax.swing.JTree;
 import javax.swing.SwingUtilities;
-import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.WindowConstants;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
+import javax.swing.border.Border;
+import javax.swing.event.TreeSelectionEvent;
+import javax.swing.event.TreeSelectionListener;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeCellRenderer;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
+import javax.swing.tree.TreeSelectionModel;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Cursor;
 import java.awt.GraphicsConfiguration;
 import java.awt.GridBagConstraints;
 import java.awt.Insets;
@@ -36,10 +32,9 @@ import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -49,30 +44,21 @@ import java.util.List;
 
 public class LogFileViewer extends JFrame {
 
-    private static final int MAX_SEARCH_TAB = 10;
+    private JFileChooser fileChooser;
 
     private NamedFilterRegistry namedFilterRegistry;
 
-    private JFileChooser fileChooser;
+    private JSplitPane splitPane;
 
-    private JLabel fileStatusLabel;
-    private JProgressBar fileLoadProgressBar;
-    private JPanel fileStatusFillerPanel;
-    private JMenuItem fileViewerCopyItem;
-    private JMenuItem fileViewerSelectAllItem;
-    private JMenuItem fileViewerGoToLineItem;
-    private JButton fileReloadButton;
+    private JTree fileTree;
 
-    private TextViewer fileViewer;
-    private MultiFileModel fileViewerModel;
+    private DefaultTreeModel fileTreeModel;
 
-    private JTabbedPane searchTabbedPane;
+    private DefaultMutableTreeNode rootFileTreeNode;
 
-    private SearchPanel[] searchPanels;
+    private JPanel emptyPanel;
 
-    private ProgressMonitor progressMonitor;
-
-    private List<Listener> listenerList = new ArrayList<>();
+    private JMenuItem fileCloseItem;
 
     public LogFileViewer() {
 
@@ -94,108 +80,73 @@ public class LogFileViewer extends JFrame {
 
         fileChooser = new JFileChooser(new File("").getAbsoluteFile());
 
-        // Configure the File Viewer Panel
-
-        fileViewerModel = new MultiFileModel();
-
-        fileStatusLabel = new JLabel();
-        fileStatusLabel.setVisible(false);
-
-        fileLoadProgressBar = new JProgressBar(0, 100);
-        fileLoadProgressBar.setVisible(false);
-
-        fileStatusFillerPanel = new JPanel();
-        fileStatusFillerPanel.setVisible(true);
-
-        fileReloadButton = new JButton("Reload");
-        fileReloadButton.setEnabled(false);
-        fileReloadButton.addActionListener(new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent actionEvent) {
-                doReloadFile();
-            }
-        });
-
-        GridBagPanel fileStatusPanel = new GridBagPanel();
-        fileStatusPanel.addComponent(fileStatusLabel, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2));
-        fileStatusPanel.addComponent(fileLoadProgressBar, 0, 1, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(2, 6, 2, 2));
-        fileStatusPanel.addComponent(fileStatusFillerPanel, 0, 2, 1, 1, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0));
-        fileStatusPanel.addComponent(fileReloadButton, 0, 3, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2));
-
-        fileViewer = new TextViewer(fileViewerModel);
-
-        ListSelectionModel fileViewerSelectionModel = fileViewer.getSelectionModel();
-        fileViewerSelectionModel.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-
-        fileViewerSelectionModel.addListSelectionListener(new ListSelectionListener() {
-            @Override
-            public void valueChanged(ListSelectionEvent e) {
-
-                int[] selectedRows = fileViewer.getSelectedRows();
-
-                fileViewerCopyItem.setEnabled(selectedRows.length > 0);
-            }
-        });
-
-        JScrollPane fileScrollPane = new JScrollPane(fileViewer, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        fileScrollPane.getViewport().setBackground(Color.white);
-
-        createFileViewerPopupMenu(fileViewer, fileScrollPane);
-
-        GridBagPanel filePanel = new GridBagPanel();
-
-        filePanel.addComponent(fileStatusPanel, 0, 0, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.BOTH, new Insets(0, 10, 0, 10));
-        filePanel.addComponent(fileScrollPane, 1, 0, 1, 1, 1.0, 1.0, GridBagConstraints.NORTHWEST, GridBagConstraints.BOTH, new Insets(0, 10, 0, 10));
-
-        // Search Panels
-
-        searchTabbedPane = new JTabbedPane();
-
-        searchPanels = new SearchPanel[MAX_SEARCH_TAB];
-
-        for (int i = 0; i < searchPanels.length; i++) {
-
-            searchPanels[i] = new SearchPanel(this, new LoadedFileInfo() {
-
-                @Override
-                public MultiFileModel getFileViewerModel() {
-                    return fileViewerModel;
-                }
-
-                @Override
-                public int[] getColumnWidths() {
-                    return fileViewer.getColumnWidths();
-                }
-            });
-
-            searchTabbedPane.add(Integer.toString(i + 1), searchPanels[i]);
-
-            searchTabbedPane.addChangeListener(new ChangeListener() {
-                public void stateChanged(ChangeEvent changeEvent) {
-                    JTabbedPane sourceTabbedPane = (JTabbedPane) changeEvent.getSource();
-                    int index = sourceTabbedPane.getSelectedIndex();
-                    getRootPane().setDefaultButton(searchPanels[index].getSearchButton());
-                }
-            });
-        }
-
-        // Split Pane
-
-        JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
-
-        splitPane.setTopComponent(filePanel);
-        splitPane.setBottomComponent(searchTabbedPane);
-        splitPane.setResizeWeight(0.5);
-        splitPane.setDividerSize(2);
-
         GridBagPanel mainPanel = new GridBagPanel();
+
+        //System.err.println(UIManager.getDefaults().get("SplitPane.border").getClass().getName());
+
+        emptyPanel = new JPanel();
+        emptyPanel.setBorder((Border)UIManager.getDefaults().get("SplitPane.border"));
+
+        rootFileTreeNode = new DefaultMutableTreeNode("Root");
+
+        fileTreeModel = new DefaultTreeModel(rootFileTreeNode);
+
+        fileTree = new JTree(fileTreeModel);
+        fileTree.setRootVisible(false);
+        fileTree.setBackground(emptyPanel.getBackground());
+        fileTree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
+        fileTree.setCellRenderer(new DefaultTreeCellRenderer() {
+
+            @Override
+            public Color getBackgroundNonSelectionColor() {
+                return null;
+            }
+
+            @Override
+            public Color getBackground() {
+                return null;
+            }
+        });
+
+        fileTree.addTreeSelectionListener(new TreeSelectionListener() {
+            @Override
+            public void valueChanged(TreeSelectionEvent e) {
+
+                DefaultMutableTreeNode node = (DefaultMutableTreeNode)fileTree.getLastSelectedPathComponent();
+
+                if (node == null) {
+                    setRightComponent(emptyPanel);
+                    fileCloseItem.setEnabled(false);
+                }
+                else {
+
+                    ComponentWrapper componentWrapper = (ComponentWrapper)node.getUserObject();
+                    componentWrapper.showComponent();
+
+                    fileCloseItem.setEnabled(true);
+                }
+            }
+        });
+
+        splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+
+        splitPane.setLeftComponent(new JScrollPane(fileTree));
+        splitPane.setRightComponent(emptyPanel);
+        //splitPane.setDividerSize(2);
+        splitPane.setDividerLocation(150 + splitPane.getInsets().left);
 
         mainPanel.addComponent(splitPane, 0, 0, 1, 1, 1.0, 1.0, GridBagConstraints.NORTHWEST, GridBagConstraints.BOTH, new Insets(0, 0, 0, 0));
 
         getContentPane().add(mainPanel);
 
         createMenuBar();
+    }
+
+    private void setRightComponent(Component component) {
+
+        int dividerLocation = splitPane.getDividerLocation();
+        splitPane.setRightComponent(component);
+        splitPane.setDividerLocation(dividerLocation);
     }
 
     private void createMenuBar() {
@@ -226,6 +177,20 @@ public class LogFileViewer extends JFrame {
         });
 
         fileMenu.add(fileOpenSeriesItem);
+
+        fileMenu.addSeparator();
+
+        fileCloseItem = new JMenuItem("Close");
+        fileCloseItem.setEnabled(false);
+
+        fileCloseItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                doClose();
+            }
+        });
+
+        fileMenu.add(fileCloseItem);
 
         fileMenu.addSeparator();
 
@@ -261,138 +226,6 @@ public class LogFileViewer extends JFrame {
         setJMenuBar(menuBar);
     }
 
-    private void createFileViewerPopupMenu(Component... components) {
-
-        final JPopupMenu popupMenu = new JPopupMenu();
-
-        fileViewerCopyItem = new JMenuItem("Copy");
-        fileViewerCopyItem.setEnabled(false);
-
-        fileViewerCopyItem.addActionListener(new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent actionEvent) {
-                doCopySelectionToClipboard(fileViewer);
-            }
-        });
-
-        popupMenu.add(fileViewerCopyItem);
-
-        fileViewerSelectAllItem = new JMenuItem("Select All");
-        fileViewerSelectAllItem.setEnabled(false);
-
-        fileViewerSelectAllItem.addActionListener(new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent actionEvent) {
-                doSelectAll(fileViewer);
-            }
-        });
-
-        popupMenu.add(fileViewerSelectAllItem);
-
-        popupMenu.addSeparator();
-
-        fileViewerGoToLineItem = new JMenuItem("Go To Line...");
-        fileViewerGoToLineItem.setEnabled(false);
-
-        fileViewerGoToLineItem.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent actionEvent) {
-                doGoToLine();
-            }
-        });
-
-        popupMenu.add(fileViewerGoToLineItem);
-
-        for (Component component : components) {
-            component.addMouseListener(new MouseAdapter() {
-
-                @Override
-                public void mousePressed(MouseEvent e) {
-                    if (e.isPopupTrigger()) {
-                        popupMenu.show(e.getComponent(), e.getX(), e.getY());
-                    }
-                }
-
-                @Override
-                public void mouseReleased(MouseEvent e) {
-                    if (e.isPopupTrigger()) {
-                        popupMenu.show(e.getComponent(), e.getX(), e.getY());
-                    }
-                }
-            });
-        }
-    }
-
-    public void doSelectAll(TextViewer textViewer) {
-        LogFileViewer.this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-        textViewer.selectAll();
-        LogFileViewer.this.setCursor(Cursor.getDefaultCursor());
-    }
-
-    public void doCopySelectionToClipboard(TextViewer textViewer) {
-
-        new CopySwingWorker(new CopySwingWorker.Client() {
-
-            @Override
-            public void handleCopyStart() {
-                LogFileViewer.this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-                progressMonitor = new ProgressMonitor(LogFileViewer.this, "Copying selected lines...", "", 0, 100);
-            }
-
-            @Override
-            public boolean isCanceled() {
-                return progressMonitor.isCanceled();
-            }
-
-            @Override
-            public void handleCopyProgress(int progress) {
-                progressMonitor.setProgress(progress);
-            }
-
-            @Override
-            public void handleCopyFinished(String errorMessage) {
-
-                progressMonitor.close();
-
-                LogFileViewer.this.setCursor(Cursor.getDefaultCursor());
-
-                if (errorMessage != null) {
-                    error(errorMessage);
-                }
-            }
-        }, textViewer).execute();
-    }
-
-    public void doGoToLine() {
-
-        String lineNumberString = JOptionPane.showInputDialog(LogFileViewer.this, "Enter line number", "Go To Line", JOptionPane.PLAIN_MESSAGE);
-
-        if (lineNumberString == null) {
-            return;
-        }
-
-        int lineNumber;
-
-        try {
-            lineNumber = Integer.parseInt(lineNumberString);
-        } catch (NumberFormatException e) {
-            error("Invalid line number: " + lineNumberString);
-            return;
-        }
-
-        if (lineNumber <= 0 || lineNumber > fileViewerModel.getRowCount()) {
-            error("Line number is out of range: " + lineNumberString);
-            return;
-        }
-
-        int rowIndex = lineNumber - 1;
-
-        fileViewer.getSelectionModel().setSelectionInterval(rowIndex, rowIndex);
-        fileViewer.scrollToCenter(rowIndex, 0);
-    }
-
     public void doFileOpen() {
 
         fileChooser.setMultiSelectionEnabled(false);
@@ -401,7 +234,12 @@ public class LogFileViewer extends JFrame {
 
         if (returnVal == JFileChooser.APPROVE_OPTION) {
 
-            loadFiles(new File[] {fileChooser.getSelectedFile()});
+            try {
+                loadFiles(new File[]{fileChooser.getSelectedFile()});
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -420,7 +258,25 @@ public class LogFileViewer extends JFrame {
                 return;
             }
 
-            loadFiles(FileSeriesHelper.getFileSeries(selectedFiles));
+            try {
+                loadFiles(FileSeriesHelper.getFileSeries(selectedFiles));
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void doClose() {
+
+        DefaultMutableTreeNode node = (DefaultMutableTreeNode)fileTree.getLastSelectedPathComponent();
+
+        if (node != null) {
+
+            fileTreeModel.removeNodeFromParent(node);
+
+            ComponentWrapper componentWrapper = (ComponentWrapper)node.getUserObject();
+            componentWrapper.close();
         }
     }
 
@@ -428,129 +284,54 @@ public class LogFileViewer extends JFrame {
         System.exit(0);
     }
 
-    public void doReloadFile() {
-        loadFiles(null);
-    }
+    public void loadFiles(final File[] files) throws FileNotFoundException {
 
-    public void loadFiles(final File[] files) {
+        LogFileViewerPanelWrapper logFileViewerPanelWrapper = new LogFileViewerPanelWrapper(files);
 
-        fileViewerModel.loadFiles(files, new MultiFileModel.Client() {
+        logFileViewerPanelWrapper.showComponent();
 
-            private boolean firstFile = true;
+        DefaultMutableTreeNode fileNode = new DefaultMutableTreeNode(logFileViewerPanelWrapper);
 
-            @Override
-            public void handleLoadFileStart(File file) {
-
-                fileStatusLabel.setText("Loading " + file.getAbsolutePath());
-
-                if (firstFile) {
-
-                    fileStatusLabel.setVisible(true);
-                    fileStatusLabel.setToolTipText(null);
-
-                    fileLoadProgressBar.setVisible(true);
-                    fileStatusFillerPanel.setVisible(false);
-                    fileReloadButton.setEnabled(false);
-
-                    fileViewerCopyItem.setEnabled(false);
-                    fileViewerSelectAllItem.setEnabled(false);
-                    fileViewerGoToLineItem.setEnabled(false);
-
-                    for (Listener listener : listenerList) {
-                        listener.handleLoadFileStart();
-                    }
-
-                    firstFile = false;
-                }
-            }
-
-            @Override
-            public void handleLoadFileProgress(int progress) {
-                fileLoadProgressBar.setValue(progress);
-            }
-
-            @Override
-            public void handleLoadFilesFinished(final File[] files, long startTime) {
-
-                fileLoadProgressBar.setValue(100);
-
-                fileViewerSelectAllItem.setEnabled(true);
-                fileViewerGoToLineItem.setEnabled(true);
-
-                for (Listener listener : listenerList) {
-                    listener.handleLoadFileFinished();
-                }
-
-                // Need to make the selected search panel's search button the default button.
-
-                getRootPane().setDefaultButton(searchPanels[searchTabbedPane.getSelectedIndex()].getSearchButton());
-
-                final long elapsedTime = System.currentTimeMillis() - startTime;
-
-                final int lineCount = fileViewerModel.getRowCount();
-
-                final String fileSeriesName = FileSeriesHelper.getFileSeriesName(files);
-
-                final String toolTipText = FileSeriesHelper.getFileNamesString(files);
-
-                Timer delayTimer = new Timer(500, new ActionListener() {
-
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-                        fileLoadProgressBar.setVisible(false);
-                        fileStatusFillerPanel.setVisible(true);
-
-                        if (lineCount == 1) {
-                            fileStatusLabel.setText(fileSeriesName + " (1 line, " + elapsedTime + " ms)");
-                        } else {
-                            fileStatusLabel.setText(fileSeriesName + " (" + lineCount + " lines, " + elapsedTime + " ms, " + (fileViewerModel.getLongestRow() + 1) + ")" );
-                        }
-
-                        fileStatusLabel.setToolTipText(toolTipText);
-
-                        fileReloadButton.setEnabled(true);
-                    }
-                });
-
-                delayTimer.setRepeats(false);
-
-                delayTimer.start();
-            }
-        });
-    }
-
-    public void addListener(Listener listener) {
-
-        if (!listenerList.contains(listener)) {
-            listenerList.add(listener);
-        }
-    }
-
-    public void removeListener(Listener listener) {
-        listenerList.remove(listener);
-    }
-
-    public void handleSelectionChanged(int selectedRow) {
-        fileViewer.getSelectionModel().setSelectionInterval(selectedRow, selectedRow);
-        fileViewer.scrollToCenter(selectedRow, 0);
-    }
-
-    public interface Listener {
-        void handleLoadFileStart();
-        void handleLoadFileFinished();
-    }
-
-    public interface LoadedFileInfo {
-        MultiFileModel getFileViewerModel();
-        int[] getColumnWidths();
-    }
-
-    public NamedFilterRegistry getNamedFilterRegistry() {
-        return namedFilterRegistry;
+        fileTreeModel.insertNodeInto(fileNode, rootFileTreeNode, rootFileTreeNode.getChildCount());
+        fileTree.setSelectionPath(new TreePath(new Object[] {rootFileTreeNode, fileNode} ));
     }
 
     private void error(String message) {
         JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private interface ComponentWrapper {
+        void showComponent();
+        void close();
+    }
+
+    private class LogFileViewerPanelWrapper implements ComponentWrapper {
+
+        private String displayName;
+
+        private LogFileViewerPanel logFileViewerPanel;
+
+        private LogFileViewerPanelWrapper(File[] files) throws FileNotFoundException {
+            this.displayName = FileSeriesHelper.getShortFileSeriesName(files);
+            this.logFileViewerPanel = new LogFileViewerPanel(LogFileViewer.this, namedFilterRegistry);
+            logFileViewerPanel.loadFiles(files);
+        }
+
+        @Override
+        public void showComponent() {
+            setRightComponent(logFileViewerPanel);
+            logFileViewerPanel.handleShow();
+        }
+
+        @Override
+        public void close() {
+            logFileViewerPanel.close();
+        }
+
+        @Override
+        public String toString() {
+            return displayName;
+        }
     }
 
     private static void createFile(File file, int lineCount) {
@@ -651,9 +432,9 @@ public class LogFileViewer extends JFrame {
 
     public static void main(String args[]) throws Exception {
 
-        System.err.println(System.getProperty("os.name"));
-        System.err.println(UIManager.getLookAndFeel());
-        UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
+        //System.err.println(System.getProperty("os.name"));
+        //System.err.println(UIManager.getLookAndFeel());
+        //UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
 
         final List<String> argsList = new ArrayList<>(Arrays.asList(args));
 

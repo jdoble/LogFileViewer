@@ -130,6 +130,10 @@ public class FileSeriesHelper {
         return parentFile.getAbsolutePath() + File.separator + files[0].getName() + "...";
     }
 
+    private static String getDefaultShortFileSeriesName(File[] files) {
+        return files[0].getName() + "...";
+    }
+
     public static String getFileSeriesName(File[] files) {
 
         if (files.length == 1) {
@@ -158,6 +162,36 @@ public class FileSeriesHelper {
         }
 
         return rootFile.getAbsolutePath() + "*";
+    }
+
+    public static String getShortFileSeriesName(File[] files) {
+
+        if (files.length == 1) {
+            return files[0].getName();
+        }
+
+        File rootFile = files[files.length - 1];
+
+        String filePrefix = rootFile.getName() + ".";
+
+        int filePrefixLength = filePrefix.length();
+
+        for (int i = 0; i < files.length - 1; i++) {
+
+            String fileName = files[i].getName();
+
+            if (!fileName.startsWith(filePrefix)) {
+                return getDefaultShortFileSeriesName(files);
+            }
+
+            String suffix = fileName.substring(filePrefixLength);
+
+            if (!NUMBER_PATTERN.matcher(suffix).matches()) {
+                return getDefaultShortFileSeriesName(files);
+            }
+        }
+
+        return rootFile.getName() + "*";
     }
 
     public static String getFileNamesString(File[] files) {

@@ -38,13 +38,13 @@ import java.beans.PropertyChangeListener;
 import java.util.Iterator;
 import java.util.List;
 
-public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener {
+public class SearchPanel extends GridBagPanel implements LogFileViewerPanel.Listener {
 
     private static final String FILTER_BOX_PROTOTYPE_TEXT = "wwwwwwwwwwwwwwwwww";
 
-    private LogFileViewer logFileViewer;
+    private LogFileViewerPanel logFileViewerPanel;
 
-    private LogFileViewer.LoadedFileInfo loadedFileInfo;
+    private LogFileViewerPanel.LoadedFileInfo loadedFileInfo;
 
     private TextViewer searchResultViewer;
     private SearchResultViewerModel searchResultViewerModel;
@@ -92,9 +92,9 @@ public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener 
 
     private JPanel searchStatusFillerPanel;
 
-    public SearchPanel(final LogFileViewer logFileViewer, LogFileViewer.LoadedFileInfo loadedFileInfo) {
+    public SearchPanel(final LogFileViewerPanel logFileViewerPanel, LogFileViewerPanel.LoadedFileInfo loadedFileInfo) {
 
-        this.logFileViewer = logFileViewer;
+        this.logFileViewerPanel = logFileViewerPanel;
 
         this.loadedFileInfo = loadedFileInfo;
 
@@ -109,7 +109,7 @@ public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener 
             }
         });
 
-        namedFilterRegistry = logFileViewer.getNamedFilterRegistry();
+        namedFilterRegistry = logFileViewerPanel.getNamedFilterRegistry();
 
         simpleFilterBoxModel1 = new DefaultComboBoxModel<>();
         simpleFilterBox1 = new JComboBox<>(simpleFilterBoxModel1);
@@ -215,7 +215,7 @@ public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener 
 
                 int fileRow = searchResultViewerModel.getFileRow(selectedRows[0]);
 
-                logFileViewer.handleSelectionChanged(fileRow);
+                logFileViewerPanel.handleSelectionChanged(fileRow);
             }
         });
 
@@ -242,7 +242,7 @@ public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener 
 
         addComponent(searchStatusPanel, 2, 0, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL, new Insets(0, 2, 0, 0));
 
-        logFileViewer.addListener(this);
+        logFileViewerPanel.addListener(this);
     }
 
     public JButton getSearchButton() {
@@ -260,7 +260,7 @@ public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener 
 
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-                logFileViewer.doCopySelectionToClipboard(searchResultViewer);
+                logFileViewerPanel.doCopySelectionToClipboard(searchResultViewer);
             }
         });
 
@@ -273,9 +273,9 @@ public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener 
 
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-                logFileViewer.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+                logFileViewerPanel.getFrame().setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
                 searchResultViewer.selectAll();
-                logFileViewer.setCursor(Cursor.getDefaultCursor());
+                logFileViewerPanel.getFrame().setCursor(Cursor.getDefaultCursor());
             }
         });
 
@@ -303,7 +303,7 @@ public class SearchPanel extends GridBagPanel implements LogFileViewer.Listener 
     }
 
     private void openNamedFilterEditor(String filterName) {
-        new NamedFilterEditorDialog(logFileViewer, namedFilterRegistry, filterName).setVisible(true);
+        new NamedFilterEditorDialog(logFileViewerPanel.getFrame(), namedFilterRegistry, filterName).setVisible(true);
     }
 
     private class SearchButtonActionListener implements ActionListener {
